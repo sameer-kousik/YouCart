@@ -1,0 +1,19 @@
+{
+    "SEM1": {
+      "lab": "https://dummy-link.com/IIY1/lab",
+      "notes": "https://dummy-link.com/IIY1/notes",
+      "syllabus": "https://dummy-link.com/IIY1/syllabus",
+      "tt": "https://dummy-link.com/IIY1/timetable",
+      "ref": "https://dummy-link.com/IIY1/reference",
+      "qp": "https://dummy-link.com/IIY1/questionpapers"
+    },
+    "SEM2": {
+      "lab": "https://dummy-link.com/IIY2/lab",
+      "notes": "https://dummy-link.com/IIY2/notes",
+      "syllabus": "https://dummy-link.com/IIY2/syllabus",
+      "tt": "https://dummy-link.com/IIY2/timetable",
+      "ref": "https://dummy-link.com/IIY2/reference",
+      "qp": "https://dummy-link.com/IIY2/questionpapers"
+    }
+  }
+  

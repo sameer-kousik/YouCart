@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>YouCart</title>
+</head>
+<body>
+    <h1>Welcome to YouCart</h1>
+
+    <!-- Login Section -->
+<div id="login-section">
+    <div>
+        <button id="login-btn" disabled>Login with Kroger</button>
+        <p id="login-status" style="display: none; color: green;"></p>
+    </div>
+</div>
+
+    <!-- Location Section -->
+    <div id="location-section">
+        <h2>Select Your Location</h2>
+        <input type="text" id="zip-code-input" placeholder="Enter ZIP Code" />
+        <button id="find-location-btn">Find Stores</button>
+        <br/><br/>
+        <select id="location-select" disabled></select>
+    </div>
+
+    <!-- Product Search Section -->
+    <div id="search-section">
+        <h2>Search Products</h2>
+        <div>
+            <input type="text" id="search-input" placeholder="Search for products" />
+            <button id="search-btn">Search</button>
+        </div>
+        <div id="results"></div>
+    </div>
+
+    <!-- Cart Section -->
+    <div id="cart-section">
+        <h2>Your Cart</h2>
+        <ul id="cart-items"></ul>
+    </div>
+
+    <!-- Link JS (important: at end of body) -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
