@@ -9,24 +9,42 @@
     <h1>Welcome to YouCart</h1>
 
     <!-- Login Section -->
-<div id="login-section">
-    <div>
-        <button id="login-btn" disabled>Login with Kroger</button>
-        <p id="login-status" style="display: none; color: green;"></p>
+    <div id="login-section">
+        <div>
+            <button id="login-btn" disabled>Login with Kroger</button>
+            <p id="login-status" style="display: none; color: green;"></p>
+        </div>
     </div>
-</div>
 
     <!-- Location Section -->
     <div id="location-section">
         <h2>Select Your Location</h2>
         <input type="text" id="zip-code-input" placeholder="Enter ZIP Code" />
         <button id="find-location-btn">Find Stores</button>
-        <br/><br/>
-        <select id="location-select" disabled></select>
+        <br>
+        <label for="location-select">Available Stores:</label>
+        <select id="location-select" disabled>
+            <option value="">Select a store</option>
+        </select>
+    </div>
+
+    <!-- Analyze Section -->
+    <div id="analyze-section">
+        <h2>Analyze YouTube Video</h2>
+        <label for="video-title">Video Title:</label>
+        <input type="text" id="video-title" placeholder="Enter video title">
+        <br>
+        <label for="video-link">YouTube Video Link:</label>
+        <input type="text" id="video-link" placeholder="Enter YouTube video link">
+        <br>
+        <button id="analyze-btn">Analyze</button>
+        <h3>Ingredients:</h3>
+        <ul id="ingredients-list"></ul>
+        <button id="add-ingredients-btn">Add Ingredients to Cart</button>
     </div>
 
     <!-- Product Search Section -->
-    <div id="search-section">
+    <div id="search-section" style="display: none;">
         <h2>Search Products</h2>
         <div>
             <input type="text" id="search-input" placeholder="Search for products" />
@@ -36,7 +54,7 @@
     </div>
 
     <!-- Cart Section -->
-    <div id="cart-section">
+    <div id="cart-section" style="display: none;">
         <h2>Your Cart</h2>
         <ul id="cart-items"></ul>
     </div>

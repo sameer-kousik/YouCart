@@ -42,6 +42,69 @@ document.getElementById("find-location-btn").addEventListener("click", async () 
     locationSelect.disabled = false;
 });
 
+// Enable the "Analyze" section after selecting a location
+document.getElementById("location-select").addEventListener("change", async (event) => {
+    const locationId = event.target.value;
+
+    if (locationId) {
+        // Save the selected location
+        await fetch("/save-location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ location_id: locationId }),
+        });
+
+        alert("Location saved successfully!");
+
+        // Enable the "Analyze" section
+        document.getElementById("analyze-section").style.display = "block";
+        document.getElementById("analyze-btn").disabled = false;
+        document.getElementById("add-ingredients-btn").disabled = false;
+    }
+});
+
+// Handle "Analyze" button click
+document.getElementById("analyze-btn").addEventListener("click", async () => {
+    const title = document.getElementById("video-title").value;
+    const link = document.getElementById("video-link").value;
+
+    if (!title || !link) {
+        alert("Please provide both the video title and link.");
+        return;
+    }
+
+    try {
+        // Fetch ingredients from the backend
+        const response = await fetch("/get_ingredients", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ title, link }),
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || "Failed to fetch ingredients.");
+        }
+
+        const data = await response.json();
+        const ingredientsList = document.getElementById("ingredients-list");
+        ingredientsList.innerHTML = ""; // Clear previous results
+
+        data.ingredients.forEach((ingredient) => {
+            const li = document.createElement("li");
+            li.textContent = ingredient;
+            ingredientsList.appendChild(li);
+        });
+
+        alert("Ingredients fetched successfully!");
+    } catch (error) {
+        console.error("Error fetching ingredients:", error);
+        alert(`Error: ${error.message}`);
+    }
+});
+
 // Save selected location
 document.getElementById("location-select").addEventListener("change", async (event) => {
     const locationId = event.target.value;
@@ -85,19 +148,22 @@ async function addToCart(upc) {
             quantity: 1, // Default quantity
             modality: "DELIVERY" // Default modality
         };
-        console.log("Adding to cart:", payload);
+
         const response = await fetch("/cartadd", {
-            method: "POST",
+            method: "PUT", // Ensure this matches the API's required method
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
         });
-        console.log("Response status:", response.status);
+
         if (!response.ok) {
             const error = await response.json();
             throw new Error(error.detail || "Failed to add product to cart");
         }
-        
+
         alert("Product added to cart successfully!");
+
+        // Refresh the cart items after adding to cart
+        await refreshCart();
     } catch (error) {
         console.error("Error adding product to cart:", error);
         alert(`Error: ${error.message}`);
@@ -113,11 +179,11 @@ document.querySelectorAll(".add-to-cart-btn").forEach(button => {
             const payload = {
                 upc: upc,
                 quantity: 1, // Default quantity
-                modality: "PICKUP" // Default modality
+                modality: "DELIVERY" // Default modality
             };
 
             const response = await fetch("/cartadd", {
-                method: "POST",
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload),
             });
@@ -139,6 +205,36 @@ document.getElementById("results").addEventListener("click", async function (eve
   if (event.target.classList.contains("add-to-cart-btn")) {
     const productId = event.target.getAttribute("data-product-id");
 }});
+
+// Handle "Add Ingredients to Cart" button
+document.getElementById("add-ingredients-btn").addEventListener("click", async () => {
+    const ingredientsList = document.querySelectorAll("#ingredients-list li");
+    const ingredients = Array.from(ingredientsList).map((li) => li.textContent);
+
+    try {
+        for (const ingredient of ingredients) {
+            const result = await fetch("/process_ingredient", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ ingredient }),
+            });
+
+            const resultData = await result.json();
+            if (result.ok && resultData.status === "added") {
+                console.log(`Added to cart: ${ingredient}`);
+            } else {
+                console.log(`Skipped: ${ingredient} (not available in Kroger)`);
+            }
+        }
+
+        alert("All ingredients processed. Check the console for details.");
+    } catch (error) {
+        console.error("Error processing ingredients:", error);
+        alert(`Error: ${error.message}`);
+    }
+});
 
 // Run the checkLoginStatus function when the page loads
 window.addEventListener("load", checkLoginStatus);

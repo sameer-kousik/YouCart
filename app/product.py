@@ -13,27 +13,43 @@ user_locations = {}  # Placeholder for user locations
 
 @router.get("/products")
 def search_products(token: str, query: str, location_id: str, request: Request):
-    #user_id = request.client.host
-    # print(user_id not in user_tokens)
-    # print(user_id not in user_locations)
-    # if user_id not in user_tokens or user_id not in user_locations:
-    #     raise HTTPException(status_code=401, detail="User not logged in or location not set")
-    #token = user_tokens[user_id]["access_token"]
+    """
+    Search for a product in the Kroger catalog by ingredient name.
+    """
     headers = {"Authorization": f"Bearer {token}"}
     url = f"{KROGER_API_BASE}/products"
-    headers = {"Authorization": f"Bearer {token}"}
     params = {
         "filter.term": query,
         "filter.locationId": location_id,
-        "filter.limit": 2
     }
-    print(url)
-    
+
     response = requests.get(url, headers=headers, params=params)
     if response.status_code != 200:
         raise HTTPException(status_code=response.status_code, detail=response.json())
-    print(response.json())
-    return response.json()
+
+    products = response.json().get("data", [])
+    return products[0] if products else None
+
+def add_product_to_cart(token: str, location_id: str, upc: str):
+    """
+    Add a product to the Kroger cart.
+    """
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    url = f"{KROGER_API_BASE}/cart/add"
+    payload = {
+        "items": [
+            {
+                "upc": upc,
+                "quantity": 1,
+                "modality": "PICKUP",
+                "locationId": location_id,
+            }
+        ]
+    }
+
+    response = requests.put(url, json=payload, headers=headers)
+    if response.status_code != 200:
+        raise HTTPException(status_code=response.status_code, detail=response.json())
 
 class AddToCartRequest(BaseModel):
     upc: str

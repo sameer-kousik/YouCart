@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request, HTTPException
 from auth import router as auth_router
 from auth import user_tokens
-from product import search_products
+from product import search_products, add_product_to_cart
 from location import search_locations
 from location import user_locations
 from fastapi.responses import JSONResponse
@@ -13,6 +13,7 @@ from product import router as product_router
 # from cart import handle_add_to_cart  
 from pydantic import BaseModel
 import requests
+from llm import get_ingredients_from_ai
 
 KROGER_API_BASE = "https://api.kroger.com/v1"
 app = FastAPI()
@@ -33,6 +34,10 @@ class AddToCartRequest(BaseModel):
     quantity: int
     modality: str = "PICKUP"  # Default to "PICKUP"
 
+class VideoRequest(BaseModel):
+    title: str
+    link: str
+
 @app.get("/login")
 async def login(request: Request):
     # Simulate getting tokens after OAuth authentication
@@ -51,9 +56,6 @@ async def login(request: Request):
 
     # Send the token data back to the frontend
     return JSONResponse(content=token_data)
-
-
-
 
 @app.get("/welcome")
 def welcome(request: Request):
@@ -109,26 +111,12 @@ def get_products(query: str, request: Request):
     token = token_data["access_token"]
     return search_products(token, query, location_id, request)
 
-@app.get("/product")
-def get_products(query: str, request: Request):
-    print('In Products Function')
-    user_id = request.client.host
-    print(user_id not in user_tokens)
-    print(user_id not in user_locations)
-
-    if user_id not in user_tokens or user_id not in user_locations:
-        raise HTTPException(status_code=401, detail="User not logged in or location not set")
-    token_data = user_tokens.get(user_id)
-    location_id = user_locations[user_id]
-    token = token_data["access_token"]
-    return search_products(token, query, location_id, request)
-
 class AddToCartRequest(BaseModel):
     upc: str
     quantity: int
     modality: str = "PICKUP"  # Default to "PICKUP"
 
-@app.post("/cartadd")
+@app.put("/cartadd")
 def add_to_cart(request_body: AddToCartRequest, request: Request):
     user_id = request.client.host
     print('In Add to Cart Function')
@@ -139,7 +127,7 @@ def add_to_cart(request_body: AddToCartRequest, request: Request):
     # Retrieve the token and location_id from the backend
     token = user_tokens[user_id]["access_token"]
     location_id = user_locations[user_id]
-
+    print('here here here')
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     url = f"{KROGER_API_BASE}/cart/add"
 
@@ -155,8 +143,9 @@ def add_to_cart(request_body: AddToCartRequest, request: Request):
         ]
     }
 
-    # Make the API call
-    response = requests.post(url, json=payload, headers=headers)
+    # Make the API call using PUT
+    print('Making API call to add to cart')
+    response = requests.put(url, json=payload, headers=headers)
     if response.status_code != 200:
         try:
             error_detail = response.json()
@@ -165,3 +154,65 @@ def add_to_cart(request_body: AddToCartRequest, request: Request):
         raise HTTPException(status_code=response.status_code, detail=error_detail)
 
     return {"message": "Product added to cart successfully"}
+
+@app.post("/get_ingredients")
+async def get_ingredients(request: VideoRequest):
+    try:
+        # Call the function from llm.py
+        ingredients = get_ingredients_from_ai(request.title, request.link)
+        return {"ingredients": ingredients}
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+
+class ProcessIngredientRequest(BaseModel):
+    ingredient: str
+
+@app.post("/process_ingredient")
+async def process_ingredient(request: ProcessIngredientRequest, request_obj: Request):
+    try:
+        # Retrieve the user's saved location and token
+        print(request)
+        user_id = request_obj.client.host
+        if user_id not in user_tokens or user_id not in user_locations:
+            raise HTTPException(status_code=401, detail="User not logged in or location not set")
+
+        token = user_tokens[user_id]["access_token"]
+        location_id = user_locations[user_id]
+
+        # Search for the ingredient in Kroger
+        product = search_products(token, request.ingredient, location_id, request_obj)
+        print(product)
+        if not product:
+            return {"status": "skipped", "reason": "not available"}
+
+
+        # Use the add_to_cart functionality to add the product to the cart
+        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+        url = f"{KROGER_API_BASE}/cart/add"
+
+        payload = {
+            "items": [
+                {
+                    "upc": product["upc"],
+                    "quantity": 1,  # Default quantity
+                    "modality": "DELIVERY",  # Default modality
+                    "locationId": location_id
+                }
+            ]
+        }
+
+        response = requests.put(url, json=payload, headers=headers)
+        print(response)
+        if response.status_code != 200:
+            try:
+                error_detail = response.json()
+            except requests.exceptions.JSONDecodeError:
+                error_detail = {"error": "Non-JSON response from API", "content": response.text}
+            raise HTTPException(status_code=response.status_code, detail=error_detail)
+
+        return {"status": "added", "ingredient": request.ingredient}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -47,6 +47,9 @@ def callback(code: str, request: Request):
     response = requests.post(token_url, data=data, headers=headers)
     token_data = response.json()
 
+    print(response.json())
+    print(str(response))
+
     # Log the token data to inspect
     print(f"Token Data: {token_data}")
 
