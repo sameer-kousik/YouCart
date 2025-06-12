@@ -1,6 +1,6 @@
 import requests
 from fastapi import HTTPException, Request, APIRouter
-from auth import user_tokens
+from .auth import user_tokens
 
 router = APIRouter()
 user_locations = {}
