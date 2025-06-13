@@ -1,8 +1,8 @@
 import requests
 from fastapi import HTTPException, APIRouter
 from pydantic import BaseModel
-from auth import user_tokens
-from location import user_locations
+from .auth import user_tokens
+from .location import user_locations
 
 KROGER_API_BASE = "https://api.kroger.com/v1"
 
@@ -39,7 +39,7 @@ def handle_add_to_cart(request_body: AddToCartRequest, user_id: str):
 
     # Make the API call
     response = requests.post(url, json=payload, headers=headers)
-    if response.status_code != 200:
+    if not (200 <= response.status_code < 300):
         try:
             error_detail = response.json()
         except requests.exceptions.JSONDecodeError:
