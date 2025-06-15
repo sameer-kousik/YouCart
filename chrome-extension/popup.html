@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouCart</title>
+    <link rel="stylesheet" type="text/css" href="style.css">
+</head>
+<body>
+    <h1>Welcome to YouCart!</h1>
+    <p>Loading...</p>
+    <div id="auth-section">
+        <button id="loginBtn">Login with Kroger</button>
+    </div>
+    <div id="location-section" style="display:none;">
+        <input type="text" id="zipCode" placeholder="Enter ZIP Code">
+        <button id="searchLocationsBtn">Search Locations</button>
+        <div id="locationsList"></div>
+        <button id="saveLocationBtn" style="display:none;">Save Location</button>
+    </div>
+    <div id="youtube-section" style="display:none;">
+        <button id="analyzeVideoBtn">Analyze Video for Ingredients</button>
+    </div>
+    <div id="ingredients-section" style="display:none;">
+        <h2>Ingredients:</h2>
+        <ul id="ingredientsList"></ul>
+        <button id="addToCartBtn">Add All to Cart</button>
+    </div>
+    <div id="status-messages"></div>
+    <script src="popup.js"></script>
+</body>
+</html>
