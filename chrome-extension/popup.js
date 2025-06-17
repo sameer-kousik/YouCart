@@ -1,19 +1,35 @@
 document.addEventListener('DOMContentLoaded', function() {
+    console.log("Popup DOMContentLoaded: Initializing...");
+
     // Initial UI Reset
-    document.getElementById('ingredientsList').innerHTML = '';
-    document.getElementById('locationsList').innerHTML = '';
+    const ingredientsListUl = document.getElementById('ingredientsList'); // Moved up
+    const locationsListDiv = document.getElementById('locationsList'); // Moved up
     const statusMessages = document.getElementById('status-messages');
-    statusMessages.textContent = '';
-    // Sections are hidden by default via CSS now, but ensure critical buttons are also reset if needed
-    // document.getElementById('location-section').style.display = 'none'; // Managed by CSS
-    // document.getElementById('youtube-section').style.display = 'none'; // Managed by CSS
-    // document.getElementById('ingredients-section').style.display = 'none'; // Managed by CSS
-    // document.getElementById('saveLocationBtn').style.display = 'none'; // Managed by CSS
-    // document.getElementById('addToCartBtn').style.display = 'none'; // Managed by CSS
+
+    ingredientsListUl.innerHTML = '';
+    locationsListDiv.innerHTML = '';
+    statusMessages.textContent = 'Checking status...'; // More specific initial message
 
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
     const youtubeSection = document.getElementById('youtube-section');
+    const ingredientsSection = document.getElementById('ingredients-section'); // Added for completeness of hiding
+    const saveLocationBtn = document.getElementById('saveLocationBtn');
+    const addToCartBtn = document.getElementById('addToCartBtn');
+
+    // Hide all major sections initially, then show the correct one
+    authSection.style.display = 'none';
+    locationSection.style.display = 'none';
+    youtubeSection.style.display = 'none';
+    ingredientsSection.style.display = 'none';
+    saveLocationBtn.style.display = 'none';
+    addToCartBtn.style.display = 'none';
+
+    // Moved currentIngredients declaration to be accessible by the storage callback
+    // let currentIngredients = []; // This was inside analyzeVideoBtn logic, now moved higher if needed by initial display
+    // For this subtask, currentIngredients being populated relies on analyzeVideoBtn click,
+    // so it will be empty on initial load unless we store/retrieve it from chrome.storage as well.
+    // The prompt suggests checking it, implying it might be populated. For now, assume it's an in-memory variable.
 
     const searchLocationsBtn = document.getElementById('searchLocationsBtn');
     const zipCodeInput = document.getElementById('zipCode');
@@ -23,28 +39,57 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Check initial auth state and location state
     chrome.storage.local.get(['kroger_access_token', 'kroger_location_id', 'kroger_token_expires_in', 'kroger_token_obtained_at'], function(result) {
+        console.log("Popup: Storage data retrieved:", result);
+
         const now = Date.now();
-        const isValidToken = result.kroger_access_token &&
-                             result.kroger_token_obtained_at &&
-                             result.kroger_token_expires_in &&
-                             (now - result.kroger_token_obtained_at < (result.kroger_token_expires_in * 1000));
+        let isValidToken = false;
+        if (result.kroger_access_token && result.kroger_token_obtained_at && result.kroger_token_expires_in) {
+            const tokenAge = now - result.kroger_token_obtained_at;
+            const expiresInMs = result.kroger_token_expires_in * 1000;
+            if (tokenAge < expiresInMs) {
+                isValidToken = true;
+            } else {
+                console.log("Popup: Token expired.");
+                // Optionally, clear expired token data from storage here
+                // chrome.storage.local.remove(['kroger_access_token', 'kroger_refresh_token', 'kroger_token_expires_in', 'kroger_token_obtained_at', 'kroger_location_id']);
+            }
+        }
+
+        console.log("Popup: Token valid?", isValidToken);
+        console.log("Popup: Location ID from storage:", result.kroger_location_id);
 
         if (isValidToken) {
             authSection.style.display = 'none';
             if (result.kroger_location_id) {
-                statusMessages.textContent = 'Logged in and location set.';
+                statusMessages.textContent = 'Ready to analyze or add to cart.';
                 locationSection.style.display = 'none';
-                youtubeSection.style.display = 'block'; // Or main view
+                // If currentIngredients (in-memory) has items, show ingredients view, else YouTube view.
+                // This check for currentIngredients won't work as expected on a fresh popup load as it's not persisted.
+                // For now, will default to youtubeSection as per original logic.
+                // A more robust solution would store/retrieve currentIngredients via chrome.storage if persistence across popup closes is desired.
+                // if (currentIngredients && currentIngredients.length > 0) { // currentIngredients is not defined here yet
+                //      youtubeSection.style.display = 'none';
+                //      ingredientsSection.style.display = 'block';
+                //      addToCartBtn.style.display = 'block';
+                // } else {
+                youtubeSection.style.display = 'block';
+                ingredientsSection.style.display = 'none';
+                // }
+                console.log("Popup: Logged in and location set. Showing YouTube section.");
             } else {
                 statusMessages.textContent = 'Logged in. Please select your Kroger store.';
                 locationSection.style.display = 'block';
                 youtubeSection.style.display = 'none';
+                ingredientsSection.style.display = 'none';
+                console.log("Popup: Logged in, no location. Showing location section.");
             }
         } else {
             statusMessages.textContent = 'Please login with Kroger.';
             authSection.style.display = 'block';
             locationSection.style.display = 'none';
             youtubeSection.style.display = 'none';
+            ingredientsSection.style.display = 'none';
+            console.log("Popup: Not logged in or token expired. Showing auth section.");
         }
     });
 
@@ -139,10 +184,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const analyzeVideoBtn = document.getElementById('analyzeVideoBtn');
+    // Moved currentIngredients declaration higher
+    let currentIngredients = [];
     const ingredientsSection = document.getElementById('ingredients-section');
     const ingredientsListUl = document.getElementById('ingredientsList');
-    let currentIngredients = []; // Variable to store the latest ingredients
-    const addToCartBtn = document.getElementById('addToCartBtn');
+    const addToCartBtn = document.getElementById('addToCartBtn'); // Already defined, ensure this is after its DOM element
 
 
     if (analyzeVideoBtn) {
@@ -257,16 +303,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
     const youtubeSection = document.getElementById('youtube-section');
+    const ingredientsSection = document.getElementById('ingredients-section'); // Added
 
     if (message.type === "AUTH_SUCCESS") {
-        statusMessages.textContent = 'Login successful! Please set your location.';
+        statusMessages.textContent = 'Login successful! Please select your store.';
         authSection.style.display = 'none';
-        locationSection.style.display = 'block';
+        locationSection.style.display = 'block'; // Show location section next
         youtubeSection.style.display = 'none';
+        ingredientsSection.style.display = 'none'; // Ensure ingredients hidden
+        console.log("Popup: Auth success, showing location section.");
     } else if (message.type === "AUTH_FAILURE") {
         statusMessages.textContent = `Login failed: ${message.error}`;
-        authSection.style.display = 'block'; // Show login section again
+        authSection.style.display = 'block'; // Ensure auth section is visible for retry
         locationSection.style.display = 'none';
         youtubeSection.style.display = 'none';
+        ingredientsSection.style.display = 'none'; // Ensure ingredients hidden
+        console.log("Popup: Auth failure.");
     }
+    // This was a proposed new message type, but existing logic in saveLocationBtn callback handles UI
+    // else if (message.type === "LOCATION_SAVED_SUCCESS") {
+    //      statusMessages.textContent = "Location saved! Ready to analyze.";
+    //      locationSection.style.display = 'none';
+    //      youtubeSection.style.display = 'block';
+    //      ingredientsSection.style.display = 'none';
+    //      console.log("Popup: Location saved, showing YouTube section.");
+    // }
 });

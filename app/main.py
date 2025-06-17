@@ -1,20 +1,20 @@
 from fastapi import FastAPI, Request, HTTPException, Depends
-from app.auth import router as auth_router # Ensure app. prefix if needed for consistency
-from app.auth import get_current_user_token # New import
+from auth import router as auth_router
+from auth import get_current_user_token
 # from auth import user_tokens # Will be replaced by token-based auth
-from app.product import search_products, add_product_to_cart # Ensure app. prefix
-from app.location import token_to_location_id_map # Removed search_locations from import
+from product import search_products, add_product_to_cart
+from location import token_to_location_id_map
 # from location import user_locations # Will be replaced by token-based auth
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 import os
-from app.product import router as product_router # Corrected import
+from product import router as product_router
 # from cart import router as cart_router
 # from cart import handle_add_to_cart  
 from pydantic import BaseModel
 import requests
-from app.llm import get_ingredients_from_ai # Corrected import
+from llm import get_ingredients_from_ai
 
 KROGER_API_BASE = "https://api.kroger.com/v1"
 app = FastAPI()
@@ -29,7 +29,7 @@ app.include_router(auth_router, prefix="/auth") # Added /auth prefix
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static") # Use robust path, ensure only one mount
 app.include_router(product_router)
-from app.location import router as location_router # Import location router
+from location import router as location_router # Import location router
 app.include_router(location_router) # Include location router
 #app.include_router(cart_router)
 
