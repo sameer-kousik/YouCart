@@ -2,7 +2,7 @@
 // ####################################################################################
 // # IMPORTANT: REPLACE WITH YOUR ACTUAL KROGER CLIENT ID BEFORE RUNNING THE EXTENSION #
 // # You can get this from your Kroger Developer Portal account.                       #
-const KROGER_CLIENT_ID = "test_kroger_client_id_from_user_input"; // <--- REPLACE THIS!!!
+const KROGER_CLIENT_ID = "youcart-2432612430342445485a5a477273704a627733736250477a4632716b755065315637767a694b6766726662436642514c6b466e716e366b61376c34435477106669341475649"; // <--- REPLACE THIS!!!
 // ####################################################################################
 const BACKEND_URL = "http://localhost:8000"; // Or your actual backend URL
 
