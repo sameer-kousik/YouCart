@@ -1,7 +1,7 @@
 import requests
 from fastapi import HTTPException, Request, APIRouter, Depends
 from pydantic import BaseModel
-from auth import get_current_user_token # Assuming get_current_user_token is in app/auth.py
+from auth import get_current_user_token # Changed from .auth
 
 router = APIRouter()
 token_to_location_id_map = {} # New storage for token to location_id mapping

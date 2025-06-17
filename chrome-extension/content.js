@@ -12,14 +12,44 @@ function getVideoTitle() {
 }
 
 function getVideoDescription() {
-    // YouTube description is often in a container with ID "description" or "description-inner"
-    // This might need adjustment if YouTube changes its layout.
-    const descriptionElement = document.querySelector('#description .ytd-watch-metadata #description-inline-expander span, #description.ytd-watch-metadata .ytd-expandable-video-description-body-renderer');
-    if (!descriptionElement) {
-        console.warn("YouCart content.js: Description element not found. YouTube structure might have changed.");
-        return "Description not found.";
+    console.log("YouCart content.js: Attempting to get full video description.");
+    let fullDescription = "";
+
+    // Try a selector known to often hold the main description text container
+    // YouTube's classes can be complex and dynamic. This selector targets a common pattern.
+    const descriptionRenderer = document.querySelector('ytd-expandable-video-description-body-renderer');
+
+    if (descriptionRenderer) {
+        // The actual text is often within a child element with the class 'yt-core-attributed-string'
+        // or spread across multiple such elements if formatted.
+        const textElements = descriptionRenderer.querySelectorAll('.yt-core-attributed-string');
+        if (textElements && textElements.length > 0) {
+            textElements.forEach(el => {
+                fullDescription += el.innerText + '\n'; // Concatenate text from all found elements
+            });
+            fullDescription = fullDescription.trim();
+        } else if (descriptionRenderer.innerText) {
+            // Fallback if specific children not found, take all innerText of the renderer
+            fullDescription = descriptionRenderer.innerText.trim();
+        }
     }
-    return descriptionElement.innerText.trim();
+
+    if (fullDescription) {
+        console.log("YouCart content.js: Full description found, length:", fullDescription.length);
+        return fullDescription;
+    }
+
+    // Fallback to the previous, potentially partial, selector if the new one fails
+    console.warn("YouCart content.js: New full description selector failed. Falling back to old method.");
+    const oldDescriptionElement = document.querySelector('#description .ytd-watch-metadata #description-inline-expander span, #description.ytd-watch-metadata .ytd-expandable-video-description-body-renderer'); // Old selector
+    if (oldDescriptionElement) {
+        fullDescription = oldDescriptionElement.innerText.trim();
+        console.log("YouCart content.js: Fallback description found, length:", fullDescription.length);
+        return fullDescription;
+    }
+
+    console.warn("YouCart content.js: Could not extract video description.");
+    return "Description not found or could not be extracted.";
 }
 
 function getVideoTranscript() {
