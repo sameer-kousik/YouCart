@@ -1,14 +1,22 @@
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("Popup DOMContentLoaded: Initializing...");
+// In popup.js
 
-    // Initial UI Reset
-    const ingredientsListUl = document.getElementById('ingredientsList'); // Moved up
-    const locationsListDiv = document.getElementById('locationsList'); // Moved up
+// Ensure currentIngredients is declared in a scope accessible by DOMContentLoaded if needed by its logic.
+// It was previously defined globally for the file.
+let currentIngredients = [];
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("=======================================");
+    console.log("Popup DOMContentLoaded: Initializing UI and State Checks...");
+    console.log("=======================================");
+
+    const ingredientsListUl = document.getElementById('ingredientsList');
+    const locationsListDiv = document.getElementById('locationsList');
     const statusMessages = document.getElementById('status-messages');
 
-    ingredientsListUl.innerHTML = '';
-    locationsListDiv.innerHTML = '';
-    statusMessages.textContent = 'Checking status...'; // More specific initial message
+    // Clear previous dynamic content
+    if (ingredientsListUl) ingredientsListUl.innerHTML = '';
+    if (locationsListDiv) locationsListDiv.innerHTML = '';
+    if (statusMessages) statusMessages.textContent = 'Checking status...'; // More specific initial message
 
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
@@ -17,122 +25,151 @@ document.addEventListener('DOMContentLoaded', function() {
     const saveLocationBtn = document.getElementById('saveLocationBtn');
     const addToCartBtn = document.getElementById('addToCartBtn');
 
-    // Hide all major sections initially, then show the correct one
-    authSection.style.display = 'none';
-    locationSection.style.display = 'none';
-    youtubeSection.style.display = 'none';
-    ingredientsSection.style.display = 'none';
-    saveLocationBtn.style.display = 'none';
-    addToCartBtn.style.display = 'none';
+    // Ensure all sections are hidden by default before logic decides which to show
+    if (authSection) authSection.style.display = 'none';
+    if (locationSection) locationSection.style.display = 'none';
+    if (youtubeSection) youtubeSection.style.display = 'none';
+    if (ingredientsSection) ingredientsSection.style.display = 'none';
+    if (saveLocationBtn) saveLocationBtn.style.display = 'none';
+    if (addToCartBtn) addToCartBtn.style.display = 'none';
 
-    // Moved currentIngredients declaration to be accessible by the storage callback
-    // let currentIngredients = []; // This was inside analyzeVideoBtn logic, now moved higher if needed by initial display
-    // For this subtask, currentIngredients being populated relies on analyzeVideoBtn click,
-    // so it will be empty on initial load unless we store/retrieve it from chrome.storage as well.
-    // The prompt suggests checking it, implying it might be populated. For now, assume it's an in-memory variable.
+    console.log("Popup DOMInit: All sections hidden initially. Fetching from storage...");
 
-    const searchLocationsBtn = document.getElementById('searchLocationsBtn');
-    const zipCodeInput = document.getElementById('zipCode');
-    const locationsListDiv = document.getElementById('locationsList');
-    const saveLocationBtn = document.getElementById('saveLocationBtn');
-    let selectedLocationId = null;
-
-    // Check initial auth state and location state
     chrome.storage.local.get(['kroger_access_token', 'kroger_location_id', 'kroger_token_expires_in', 'kroger_token_obtained_at'], function(result) {
-        console.log("Popup: Storage data retrieved:", result);
+        console.log("---------------------------------------");
+        console.log("Popup Storage Callback: Data retrieved from chrome.storage.local:", result);
+        console.log("---------------------------------------");
 
         const now = Date.now();
         let isValidToken = false;
+
         if (result.kroger_access_token && result.kroger_token_obtained_at && result.kroger_token_expires_in) {
-            const tokenAge = now - result.kroger_token_obtained_at;
-            const expiresInMs = result.kroger_token_expires_in * 1000;
-            if (tokenAge < expiresInMs) {
+            const tokenObtainedAt = result.kroger_token_obtained_at;
+            const expiresInSeconds = result.kroger_token_expires_in;
+            const tokenAgeMs = now - tokenObtainedAt;
+            const expiresInMs = expiresInSeconds * 1000;
+
+            console.log(`Popup Storage CB: Now = ${now}`);
+            console.log(`Popup Storage CB: Token Obtained At = ${tokenObtainedAt}`);
+            console.log(`Popup Storage CB: Expires In (seconds) = ${expiresInSeconds}`);
+            console.log(`Popup Storage CB: Token Age (ms) = ${tokenAgeMs}`);
+            console.log(`Popup Storage CB: Token Expires In (ms) = ${expiresInMs}`);
+
+            if (tokenAgeMs < expiresInMs) {
                 isValidToken = true;
+                console.log("Popup Storage CB: Token IS VALID.");
             } else {
-                console.log("Popup: Token expired.");
-                // Optionally, clear expired token data from storage here
+                isValidToken = false;
+                console.log("Popup Storage CB: Token HAS EXPIRED.");
+                // Optionally clear all stored Kroger data upon expiry
                 // chrome.storage.local.remove(['kroger_access_token', 'kroger_refresh_token', 'kroger_token_expires_in', 'kroger_token_obtained_at', 'kroger_location_id']);
-            }
-        }
-
-        console.log("Popup: Token valid?", isValidToken);
-        console.log("Popup: Location ID from storage:", result.kroger_location_id);
-
-        if (isValidToken) {
-            authSection.style.display = 'none';
-            if (result.kroger_location_id) {
-                statusMessages.textContent = 'Ready to analyze or add to cart.';
-                locationSection.style.display = 'none';
-                // If currentIngredients (in-memory) has items, show ingredients view, else YouTube view.
-                // This check for currentIngredients won't work as expected on a fresh popup load as it's not persisted.
-                // For now, will default to youtubeSection as per original logic.
-                // A more robust solution would store/retrieve currentIngredients via chrome.storage if persistence across popup closes is desired.
-                // if (currentIngredients && currentIngredients.length > 0) { // currentIngredients is not defined here yet
-                //      youtubeSection.style.display = 'none';
-                //      ingredientsSection.style.display = 'block';
-                //      addToCartBtn.style.display = 'block';
-                // } else {
-                youtubeSection.style.display = 'block';
-                ingredientsSection.style.display = 'none';
-                // }
-                console.log("Popup: Logged in and location set. Showing YouTube section.");
-            } else {
-                statusMessages.textContent = 'Logged in. Please select your Kroger store.';
-                locationSection.style.display = 'block';
-                youtubeSection.style.display = 'none';
-                ingredientsSection.style.display = 'none';
-                console.log("Popup: Logged in, no location. Showing location section.");
+                // console.log("Popup Storage CB: Expired token and related data cleared from storage.");
             }
         } else {
-            statusMessages.textContent = 'Please login with Kroger.';
-            authSection.style.display = 'block';
-            locationSection.style.display = 'none';
-            youtubeSection.style.display = 'none';
-            ingredientsSection.style.display = 'none';
-            console.log("Popup: Not logged in or token expired. Showing auth section.");
+            console.log("Popup Storage CB: Token data incomplete or missing from storage.");
+            isValidToken = false;
         }
+
+        console.log(`Popup Storage CB: Calculated isValidToken = ${isValidToken}`);
+        const storedLocationId = result.kroger_location_id;
+        console.log(`Popup Storage CB: Stored kroger_location_id = ${storedLocationId}`);
+
+        if (isValidToken) {
+            console.log("Popup Storage CB: Path chosen: Valid Token.");
+            if (authSection) authSection.style.display = 'none';
+            if (storedLocationId) {
+                console.log("Popup Storage CB: Path chosen: Location ID Present.");
+                if (statusMessages) statusMessages.textContent = 'Ready to analyze or add to cart.';
+                if (locationSection) locationSection.style.display = 'none';
+
+                // Logic for showing youtube vs ingredients section
+                // currentIngredients is not persistent across popup closures unless stored in chrome.storage
+                // So, typically, ingredientsSection won't show on initial load unless we implement that.
+                console.log("Popup Storage CB: currentIngredients length on load:", currentIngredients.length);
+                if (currentIngredients && currentIngredients.length > 0 && ingredientsSection && addToCartBtn) {
+                     console.log("Popup Storage CB: Showing ingredients section (from previous analysis in this popup session).");
+                     if (youtubeSection) youtubeSection.style.display = 'none';
+                     ingredientsSection.style.display = 'block';
+                     addToCartBtn.style.display = 'block';
+                } else {
+                    console.log("Popup Storage CB: Showing YouTube section.");
+                    if (youtubeSection) youtubeSection.style.display = 'block';
+                    if (ingredientsSection) ingredientsSection.style.display = 'none';
+                }
+            } else {
+                console.log("Popup Storage CB: Path chosen: Location ID NOT Present.");
+                if (statusMessages) statusMessages.textContent = 'Logged in. Please select your Kroger store.';
+                if (locationSection) locationSection.style.display = 'block';
+                if (youtubeSection) youtubeSection.style.display = 'none';
+                if (ingredientsSection) ingredientsSection.style.display = 'none';
+            }
+        } else {
+            console.log("Popup Storage CB: Path chosen: Invalid or No Token.");
+            if (statusMessages) statusMessages.textContent = 'Please login with Kroger.';
+            if (authSection) authSection.style.display = 'block';
+            if (locationSection) locationSection.style.display = 'none';
+            if (youtubeSection) youtubeSection.style.display = 'none';
+            if (ingredientsSection) ingredientsSection.style.display = 'none';
+        }
+        console.log("---------------------------------------");
+        console.log("Popup Storage CB: Final display styles set:");
+        if (authSection) console.log(`Popup Storage CB: authSection.style.display = ${authSection.style.display}`);
+        if (locationSection) console.log(`Popup Storage CB: locationSection.style.display = ${locationSection.style.display}`);
+        if (youtubeSection) console.log(`Popup Storage CB: youtubeSection.style.display = ${youtubeSection.style.display}`);
+        if (ingredientsSection) console.log(`Popup Storage CB: ingredientsSection.style.display = ${ingredientsSection.style.display}`);
+        console.log("=======================================");
     });
+
+    // Event listeners for buttons (loginBtn, searchLocationsBtn, etc.)
+    // These ensure the DOM element variables are defined locally within this scope
+    // or are accessible if defined outside this specific block but within DOMContentLoaded.
 
     const loginBtn = document.getElementById('loginBtn');
     if (loginBtn) {
         loginBtn.addEventListener('click', () => {
-            statusMessages.textContent = 'Initiating login...';
+            if (statusMessages) statusMessages.textContent = 'Initiating login...';
             chrome.runtime.sendMessage({ type: "LOGIN_KROGER" }, (response) => {
                 if (chrome.runtime.lastError) {
-                    statusMessages.textContent = `Error: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error initiating login: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
-                    statusMessages.textContent = `Error: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error initiating login: ${response.error}`;
                 } else if (response && response.success) {
-                    statusMessages.textContent = "Login process started. Please complete in the new tab.";
+                    if (statusMessages) statusMessages.textContent = "Login process started. Please complete in the new tab.";
                 }
             });
         });
     }
+
+    const searchLocationsBtn = document.getElementById('searchLocationsBtn');
+    const zipCodeInput = document.getElementById('zipCode');
+    // locationsListDiv is already defined above
+    // saveLocationBtn is already defined above
+    let selectedLocationId = null;
 
     if (searchLocationsBtn) {
         searchLocationsBtn.addEventListener('click', () => {
             const zip = zipCodeInput.value.trim();
             const zipRegex = /^\d{5}$/;
             if (!zipRegex.test(zip)) {
-                statusMessages.textContent = "Please enter a valid 5-digit ZIP code.";
+                if (statusMessages) statusMessages.textContent = "Please enter a valid 5-digit ZIP code.";
                 return;
             }
-            statusMessages.textContent = `Searching locations for ${zip}...`;
+            if (statusMessages) statusMessages.textContent = `Searching locations for ${zip}...`;
             searchLocationsBtn.disabled = true;
             zipCodeInput.disabled = true;
-            locationsListDiv.innerHTML = '';
-            saveLocationBtn.style.display = 'none';
+            if (locationsListDiv) locationsListDiv.innerHTML = '';
+            if (saveLocationBtn) saveLocationBtn.style.display = 'none';
             selectedLocationId = null;
 
             chrome.runtime.sendMessage({ type: "SEARCH_KROGER_LOCATIONS", zipCode: zip }, (response) => {
                 searchLocationsBtn.disabled = false;
                 zipCodeInput.disabled = false;
                 if (chrome.runtime.lastError) {
-                    statusMessages.textContent = `Error searching locations: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error searching locations: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
-                    statusMessages.textContent = `Error searching locations: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error searching locations: ${response.error}`;
                 } else if (response && response.success && response.locations) {
-                    statusMessages.textContent = response.locations.length > 0 ? `Found locations for ${zip}. Select one.` : `No locations found for ${zip}.`;
+                    if (statusMessages) statusMessages.textContent = response.locations.length > 0 ? `Found locations for ${zip}. Select one.` : `No locations found for ${zip}.`;
                     renderLocations(response.locations);
                 }
             });
@@ -140,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderLocations(locations) {
+        if (!locationsListDiv) return;
         locationsListDiv.innerHTML = '';
         locations.forEach(location => {
             const locDiv = document.createElement('div');
@@ -152,8 +190,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 locDiv.classList.add('selected');
                 selectedLocationId = location.locationId;
-                saveLocationBtn.style.display = 'block';
-                statusMessages.textContent = `Selected: ${location.name}`;
+                if (saveLocationBtn) saveLocationBtn.style.display = 'block';
+                if (statusMessages) statusMessages.textContent = `Selected: ${location.name}`;
             });
             locationsListDiv.appendChild(locDiv);
         });
@@ -162,78 +200,74 @@ document.addEventListener('DOMContentLoaded', function() {
     if (saveLocationBtn) {
         saveLocationBtn.addEventListener('click', () => {
             if (!selectedLocationId) {
-                statusMessages.textContent = "Please select a location first.";
+                if (statusMessages) statusMessages.textContent = "Please select a location first.";
                 return;
             }
-            statusMessages.textContent = "Saving location...";
+            if (statusMessages) statusMessages.textContent = "Saving location...";
             saveLocationBtn.disabled = true;
 
             chrome.runtime.sendMessage({ type: "SAVE_KROGER_LOCATION", locationId: selectedLocationId }, (response) => {
                 saveLocationBtn.disabled = false;
                 if (chrome.runtime.lastError) {
-                    statusMessages.textContent = `Error saving location: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error saving location: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
-                    statusMessages.textContent = `Error saving location: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error saving location: ${response.error}`;
                 } else if (response && response.success) {
-                    statusMessages.textContent = "Location saved successfully!";
-                    locationSection.style.display = 'none';
-                    youtubeSection.style.display = 'block';
+                    if (statusMessages) statusMessages.textContent = "Location saved successfully!";
+                    if (locationSection) locationSection.style.display = 'none';
+                    if (youtubeSection) youtubeSection.style.display = 'block';
                 }
             });
         });
     }
 
     const analyzeVideoBtn = document.getElementById('analyzeVideoBtn');
-    // Moved currentIngredients declaration higher
-    let currentIngredients = [];
-    const ingredientsSection = document.getElementById('ingredients-section');
-    const ingredientsListUl = document.getElementById('ingredientsList');
-    const addToCartBtn = document.getElementById('addToCartBtn'); // Already defined, ensure this is after its DOM element
-
+    // ingredientsSection, ingredientsListUl, addToCartBtn are already defined above.
+    // currentIngredients is defined at the top of the script.
 
     if (analyzeVideoBtn) {
         analyzeVideoBtn.addEventListener('click', () => {
-            statusMessages.textContent = "Analyzing video...";
+            if (statusMessages) statusMessages.textContent = "Analyzing video...";
             analyzeVideoBtn.disabled = true;
-            ingredientsSection.style.display = 'none';
-            ingredientsListUl.innerHTML = '';
+            if (ingredientsSection) ingredientsSection.style.display = 'none';
+            if (ingredientsListUl) ingredientsListUl.innerHTML = '';
 
             chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
                 if (!tabs[0] || !tabs[0].id) {
-                    statusMessages.textContent = "Cannot identify active tab.";
+                    if (statusMessages) statusMessages.textContent = "Cannot identify active tab.";
                     analyzeVideoBtn.disabled = false;
                     return;
                 }
                 if (tabs[0].url && tabs[0].url.includes("youtube.com/watch")) {
                     chrome.tabs.sendMessage(tabs[0].id, { type: "GET_YOUTUBE_VIDEO_DETAILS" }, (videoDetails) => {
                         if (chrome.runtime.lastError) {
-                            statusMessages.textContent = `Error getting video details: ${chrome.runtime.lastError.message}`;
+                            if (statusMessages) statusMessages.textContent = `Error getting video details: ${chrome.runtime.lastError.message}`;
                             analyzeVideoBtn.disabled = false;
                             return;
                         }
                         if (videoDetails) {
                             console.log("Popup: Received video details from content script:", videoDetails);
-                            statusMessages.textContent = "Video details received. Analyzing for ingredients...";
+                            if (statusMessages) statusMessages.textContent = "Video details received. Analyzing for ingredients...";
                             chrome.runtime.sendMessage({ type: "ANALYZE_VIDEO_CONTENT", videoDetails: videoDetails }, (analysisResponse) => {
                                 analyzeVideoBtn.disabled = false;
                                 if (chrome.runtime.lastError) {
-                                    statusMessages.textContent = `Analysis error: ${chrome.runtime.lastError.message}`;
+                                    if (statusMessages) statusMessages.textContent = `Analysis error: ${chrome.runtime.lastError.message}`;
                                 } else if (analysisResponse && analysisResponse.error) {
-                                    statusMessages.textContent = `Analysis error: ${analysisResponse.error}`;
+                                    if (statusMessages) statusMessages.textContent = `Analysis error: ${analysisResponse.error}`;
                                 } else if (analysisResponse && analysisResponse.success && analysisResponse.ingredients) {
-                                    statusMessages.textContent = "Ingredients found!";
+                                    if (statusMessages) statusMessages.textContent = "Ingredients found!";
                                     renderIngredients(analysisResponse.ingredients);
                                 } else {
-                                    statusMessages.textContent = "No ingredients found or unexpected response from analysis.";
+                                    if (statusMessages) statusMessages.textContent = "No ingredients found or unexpected response from analysis.";
                                 }
                             });
                         } else {
-                            statusMessages.textContent = "Could not retrieve details from video page.";
+                            if (statusMessages) statusMessages.textContent = "Could not retrieve details from video page.";
                             analyzeVideoBtn.disabled = false;
                         }
                     });
                 } else {
-                    statusMessages.textContent = "Please navigate to a YouTube video page (youtube.com/watch?v=...).";
+                    if (statusMessages) statusMessages.textContent = "Please navigate to a YouTube video page (youtube.com/watch?v=...).";
                     analyzeVideoBtn.disabled = false;
                 }
             });
@@ -241,46 +275,44 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderIngredients(ingredients) {
+        if (!ingredientsListUl) return;
         ingredientsListUl.innerHTML = '';
         currentIngredients = []; // Reset before populating
-        const addToCartBtnElement = document.getElementById('addToCartBtn'); // Get the button to show/hide
+        const addToCartBtnElement = document.getElementById('addToCartBtn');
 
         if (ingredients && ingredients.length > 0) {
             ingredients.forEach(ingredient => {
                 const li = document.createElement('li');
-                // Assuming ingredient is a string. If it's an object, adjust accordingly.
                 li.textContent = typeof ingredient === 'string' ? ingredient : ingredient.name;
                 ingredientsListUl.appendChild(li);
-                currentIngredients.push(ingredient); // Store for cart addition
+                currentIngredients.push(ingredient);
             });
-            if (addToCartBtnElement) addToCartBtnElement.style.display = 'block'; // Show cart button
+            if (addToCartBtnElement) addToCartBtnElement.style.display = 'block';
         } else {
             const li = document.createElement('li');
             li.textContent = "No ingredients listed.";
             ingredientsListUl.appendChild(li);
-            if (addToCartBtnElement) addToCartBtnElement.style.display = 'none'; // Hide cart button
+            if (addToCartBtnElement) addToCartBtnElement.style.display = 'none';
         }
-        // Ensure ingredientsSection itself is visible if it was hidden
-        document.getElementById('ingredients-section').style.display = 'block';
+        if (ingredientsSection) ingredientsSection.style.display = 'block';
     }
 
     if (addToCartBtn) {
         addToCartBtn.addEventListener('click', () => {
             if (!currentIngredients || currentIngredients.length === 0) {
-                document.getElementById('status-messages').textContent = "No ingredients to add.";
+                if (statusMessages) statusMessages.textContent = "No ingredients to add.";
                 return;
             }
 
-            document.getElementById('status-messages').textContent = "Adding ingredients to cart... This may take a moment.";
-            addToCartBtn.disabled = true; // Disable button during operation
+            if (statusMessages) statusMessages.textContent = "Adding ingredients to cart... This may take a moment.";
+            addToCartBtn.disabled = true;
 
-            // Send ingredients to background script for processing
             chrome.runtime.sendMessage({ type: "ADD_INGREDIENTS_TO_KROGER_CART", ingredients: currentIngredients }, (response) => {
-                addToCartBtn.disabled = false; // Re-enable button
+                addToCartBtn.disabled = false;
                 if (chrome.runtime.lastError) {
-                    document.getElementById('status-messages').textContent = `Error: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error adding to cart: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
-                    document.getElementById('status-messages').textContent = `Error adding to cart: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error adding to cart: ${response.error}`;
                 } else if (response && response.success) {
                     let successMessage = "Successfully added items to cart!";
                     if (response.summary) {
@@ -289,43 +321,43 @@ document.addEventListener('DOMContentLoaded', function() {
                              successMessage += ` Errors: ${response.summary.errors}.`;
                         }
                     }
-                    document.getElementById('status-messages').textContent = successMessage;
+                    if (statusMessages) statusMessages.textContent = successMessage;
                 } else {
-                     document.getElementById('status-messages').textContent = "Unknown response after adding to cart.";
+                     if (statusMessages) statusMessages.textContent = "Unknown response after adding to cart.";
                 }
             });
         });
     }
+    // Ensure all DOM element variables are defined if used in listeners below
+    // For example, loginBtn, searchLocationsBtn, zipCodeInput, locationsListDiv,
+    // saveLocationBtn, analyzeVideoBtn, ingredientsListUl, addToCartBtn
+    // are already defined at the top of this DOMContentLoaded listener.
 });
 
+// Message listener from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // These DOM element gets might fail if popup is not open when message is received.
+    // However, these messages (AUTH_SUCCESS, AUTH_FAILURE) are primarily to update an open popup.
     const statusMessages = document.getElementById('status-messages');
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
     const youtubeSection = document.getElementById('youtube-section');
-    const ingredientsSection = document.getElementById('ingredients-section'); // Added
+    const ingredientsSection = document.getElementById('ingredients-section');
 
+    console.log("Popup: Received message from background:", message);
     if (message.type === "AUTH_SUCCESS") {
-        statusMessages.textContent = 'Login successful! Please select your store.';
-        authSection.style.display = 'none';
-        locationSection.style.display = 'block'; // Show location section next
-        youtubeSection.style.display = 'none';
-        ingredientsSection.style.display = 'none'; // Ensure ingredients hidden
+        if (statusMessages) statusMessages.textContent = 'Login successful! Please select your store.';
+        if (authSection) authSection.style.display = 'none';
+        if (locationSection) locationSection.style.display = 'block';
+        if (youtubeSection) youtubeSection.style.display = 'none';
+        if (ingredientsSection) ingredientsSection.style.display = 'none';
         console.log("Popup: Auth success, showing location section.");
     } else if (message.type === "AUTH_FAILURE") {
-        statusMessages.textContent = `Login failed: ${message.error}`;
-        authSection.style.display = 'block'; // Ensure auth section is visible for retry
-        locationSection.style.display = 'none';
-        youtubeSection.style.display = 'none';
-        ingredientsSection.style.display = 'none'; // Ensure ingredients hidden
+        if (statusMessages) statusMessages.textContent = `Login failed: ${message.error}`;
+        if (authSection) authSection.style.display = 'block';
+        if (locationSection) locationSection.style.display = 'none';
+        if (youtubeSection) youtubeSection.style.display = 'none';
+        if (ingredientsSection) ingredientsSection.style.display = 'none';
         console.log("Popup: Auth failure.");
     }
-    // This was a proposed new message type, but existing logic in saveLocationBtn callback handles UI
-    // else if (message.type === "LOCATION_SAVED_SUCCESS") {
-    //      statusMessages.textContent = "Location saved! Ready to analyze.";
-    //      locationSection.style.display = 'none';
-    //      youtubeSection.style.display = 'block';
-    //      ingredientsSection.style.display = 'none';
-    //      console.log("Popup: Location saved, showing YouTube section.");
-    // }
 });

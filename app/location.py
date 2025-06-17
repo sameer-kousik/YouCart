@@ -1,10 +1,38 @@
 import requests
 from fastapi import HTTPException, Request, APIRouter, Depends
 from pydantic import BaseModel
-from auth import get_current_user_token # Changed from .auth
+from auth import get_current_user_token
+import json # Added
+import os # Added
+from typing import Dict # Added
+
+# Define the path for the JSON file.
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOCATION_MAP_FILE = os.path.join(BASE_DIR, "kroger_location_map.json")
 
 router = APIRouter()
-token_to_location_id_map = {} # New storage for token to location_id mapping
+
+def load_location_map() -> Dict[str, str]:
+    if os.path.exists(LOCATION_MAP_FILE):
+        try:
+            with open(LOCATION_MAP_FILE, "r") as f:
+                data = json.load(f)
+                print(f"Location map loaded from {LOCATION_MAP_FILE}")
+                return data
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error loading location map from {LOCATION_MAP_FILE}: {e}. Starting with an empty map.")
+            return {}
+    return {}
+
+def save_location_map(data: Dict[str, str]) -> None:
+    try:
+        with open(LOCATION_MAP_FILE, "w") as f:
+            json.dump(data, f, indent=4) # Use indent for readability
+            print(f"Location map saved to {LOCATION_MAP_FILE}")
+    except IOError as e:
+        print(f"Error saving location map to {LOCATION_MAP_FILE}: {e}")
+
+token_to_location_id_map: Dict[str, str] = load_location_map() # Modified initialization
 KROGER_API_BASE = "https://api.kroger.com/v1"
 
 # The old standalone search_locations function might be removed or refactored if not used elsewhere.
@@ -64,4 +92,5 @@ async def save_location_route(location_data: LocationSaveRequest, token: str = D
     #     raise HTTPException(status_code=401, detail="User not logged in")
 
     token_to_location_id_map[token] = location_data.location_id
+    save_location_map(token_to_location_id_map) # Added call to save the map
     return {"message": "Location saved successfully", "token_used_as_key": token, "location_id_saved": location_data.location_id }

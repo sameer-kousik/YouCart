@@ -12,28 +12,13 @@ import os
 from product import router as product_router
 # from cart import router as cart_router
 # from cart import handle_add_to_cart  
+from typing import Optional # Add this import
 from pydantic import BaseModel
 import requests
-from llm import get_ingredients_from_ai # Corrected import
-from fastapi.middleware.cors import CORSMiddleware
+from llm import get_ingredients_from_ai
 
 KROGER_API_BASE = "https://api.kroger.com/v1"
 app = FastAPI()
-
-EXTENSION_ID = "gnbofkahkklcaejogidhhfodbelabiin" # Your extension ID
-
-origins = [
-    f"chrome-extension://{EXTENSION_ID}",
-    # Add other origins like "http://localhost:3000" if needed for other frontends
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
 # Path to the directory containing main.py
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -45,7 +30,6 @@ app.include_router(auth_router, prefix="/auth") # Added /auth prefix
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static") # Use robust path, ensure only one mount
 app.include_router(product_router)
-from location import router as location_router # Import location router
 from location import router as location_router # Import location router
 app.include_router(location_router) # Include location router
 #app.include_router(cart_router)
@@ -62,8 +46,8 @@ class AddToCartRequest(BaseModel): # This is defined twice, will clean up later 
 class VideoRequest(BaseModel):
     title: str
     link: str
-    description: str  # New field
-    transcript: str   # New field
+    description: str
+    transcript_url: Optional[str] = None # Changed from transcript: str
 
 # Removed mock /login, /welcome, and main.py's /login-status as they rely on old auth
 
@@ -161,8 +145,8 @@ async def get_ingredients(request: VideoRequest):
         ingredients = get_ingredients_from_ai(
             title=request.title,
             link=request.link,
-            description=request.description, # Pass description
-            transcript=request.transcript    # Pass transcript
+            description=request.description,
+            transcript_url=request.transcript_url # Pass transcript_url
         )
         return {"ingredients": ingredients}
     except RuntimeError as e:
