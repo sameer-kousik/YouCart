@@ -1,70 +1,203 @@
+/* Import a neat font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
 body {
-    font-family: Arial, sans-serif; /* Common sans-serif font */
-    width: 320px;
-    padding: 15px;
+    font-family: 'Roboto', Arial, sans-serif; /* Professional font */
+    width: 350px; /* Slightly wider for better spacing */
+    padding: 20px;
     font-size: 14px;
-    line-height: 1.5;
+    line-height: 1.6;
+    color: #333; /* Dark grey for text, good contrast */
+    background-color: #f9f9f9; /* Light grey background */
 }
-h1, h2 {
-    margin-top: 0;
-    color: #333;
+
+h1 {
+    font-size: 20px;
+    font-weight: 500;
+    color: #2c3e50; /* Dark blue/grey for headings */
+    margin-bottom: 15px;
+    text-align: center;
 }
+
+h2 {
+    font-size: 16px;
+    font-weight: 500;
+    color: #34495e; /* Slightly lighter blue/grey */
+    margin-top: 20px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ecf0f1; /* Light separator */
+    padding-bottom: 5px;
+}
+
 button {
-    padding: 8px 12px;
-    background-color: #007bff;
+    padding: 10px 15px;
+    background-color: #3498db; /* Professional blue */
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 5px;
     cursor: pointer;
-    margin-top: 8px;
-    margin-bottom: 8px;
+    margin-top: 10px;
+    margin-bottom: 10px;
     font-size: 14px;
+    font-weight: 500;
+    transition: background-color 0.3s ease;
+    width: 100%; /* Make buttons full width for consistency */
+    box-sizing: border-box;
 }
+
 button:hover {
-    background-color: #0056b3;
+    background-color: #2980b9; /* Darker blue on hover */
 }
+
 button:disabled {
-    background-color: #ccc;
+    background-color: #bdc3c7; /* Grey for disabled state */
     cursor: not-allowed;
 }
-input[type="text"] {
-    padding: 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    width: calc(100% - 18px); /* Account for padding and border */
-    margin-bottom: 5px;
+
+input[type="text"], select#locationsDropdown { /* Style select dropdown similarly */
+    padding: 10px;
+    border: 1px solid #bdc3c7; /* Softer border color */
+    border-radius: 5px;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+    font-size: 14px;
 }
-#locationsList div, #ingredientsList li {
-    padding: 6px;
-    border: 1px solid #eee;
-    margin-top: 3px;
-    border-radius: 3px;
+
+select#locationsDropdown {
+    appearance: none; /* Remove default system appearance */
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23007CB2%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22/%3E%3C/svg%3E');
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 12px;
+    padding-right: 30px; /* Make space for arrow */
 }
-#locationsList div.selected {
-    background-color: #e0e0ff; /* Softer selection color */
-    border-color: #007bff;
+
+
+#ingredientsList {
+    list-style-type: none;
+    padding-left: 0;
 }
-#locationsList div:hover:not(.selected) {
-    background-color: #f5f5f5;
+
+#ingredientsList li {
+    padding: 8px 5px;
+    border-bottom: 1px solid #ecf0f1; /* Light separator for items */
+    display: flex;
+    align-items: center;
 }
+
+#ingredientsList li:last-child {
+    border-bottom: none;
+}
+
+#ingredientsList input[type="checkbox"] {
+    margin-right: 10px;
+    width: 16px; /* Custom checkbox size */
+    height: 16px;
+    cursor: pointer;
+}
+
+#ingredientsList label {
+    font-size: 14px;
+    color: #555;
+}
+
+
 #status-messages {
-    margin-top: 10px;
-    padding: 8px;
-    border-radius: 4px;
+    margin-top: 15px;
+    padding: 10px;
+    border-radius: 5px;
     font-size: 13px;
+    text-align: center;
+    border: 1px solid transparent; /* Prepare for status-specific borders */
 }
-/* Different styles for success/error messages could be added if status-messages div gets a class */
+
+.status-info { /* General info style */
+    background-color: #eaf5ff;
+    border-color: #aed6f1;
+    color: #2c3e50;
+}
+
 .status-success {
-    background-color: #e6ffed;
-    border: 1px solid #c3e6cb;
+    background-color: #d4edda; /* Greenish for success */
+    border-color: #c3e6cb;
     color: #155724;
 }
+
 .status-error {
-    background-color: #ffe6e6;
-    border: 1px solid #f5c6cb;
+    background-color: #f8d7da; /* Reddish for error */
+    border-color: #f5c6cb;
     color: #721c24;
 }
+
+/* Current Location Display */
+#current-location-display {
+    margin-top: 15px;
+    padding: 10px;
+    background-color: #e9ecef; /* Light grey background */
+    border-radius: 5px;
+    font-size: 13px;
+    text-align: center;
+    border: 1px solid #ced4da;
+}
+#current-location-display strong {
+    color: #495057;
+}
+
+
+/* Results Section Styling */
+#cart-results-section {
+    margin-top: 20px;
+    padding: 15px;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    display: none; /* Initially hidden */
+}
+
+#cart-results-section h3 {
+    font-size: 15px;
+    color: #34495e;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+#cart-results-section ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin-bottom: 10px;
+}
+
+#cart-results-section ul li {
+    padding: 5px 0;
+    font-size: 13px;
+    border-bottom: 1px dashed #eee;
+}
+#cart-results-section ul li:last-child {
+    border-bottom: none;
+}
+
+#cart-results-section .added-item {
+    color: #27ae60; /* Green for added items */
+}
+
+#cart-results-section .skipped-item {
+    color: #e74c3c; /* Red for skipped items */
+}
+#cart-results-section .skipped-reason {
+    font-style: italic;
+    color: #7f8c8d; /* Grey for reason */
+    margin-left: 5px;
+    font-size: 0.9em;
+}
+
+
 /* Hide sections by default, JS will show them */
-#location-section, #youtube-section, #ingredients-section, #saveLocationBtn, #addToCartBtn {
+#location-section,
+#youtube-section,
+#ingredients-section,
+#current-location-display,
+#selection-controls,
+#addToCartBtn {
     display: none;
 }

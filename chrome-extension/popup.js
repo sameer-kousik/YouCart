@@ -1,108 +1,112 @@
 // In popup.js
 
-let currentSelectedLocationId = null; // Added file-global
-let currentSelectedLocationName = null; // Added file-global
-let currentIngredients = []; // File-global
+let currentSelectedLocationId = null;
+let currentSelectedLocationName = null;
+let currentIngredients = [];
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("=======================================");
     console.log("Popup DOMContentLoaded: Initializing UI and State Checks...");
     console.log("=======================================");
 
+    // DOM Elements
     const ingredientsListUl = document.getElementById('ingredientsList');
-    const locationsListDiv = document.getElementById('locationsList');
+    const locationsDropdown = document.getElementById('locationsDropdown'); // Changed from locationsListDiv
     const statusMessages = document.getElementById('status-messages');
     
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
     const youtubeSection = document.getElementById('youtube-section');
     const ingredientsSection = document.getElementById('ingredients-section'); 
-    const saveLocationBtn = document.getElementById('saveLocationBtn'); // Will be unused
     const addToCartBtn = document.getElementById('addToCartBtn');
     const selectAllBtn = document.getElementById('selectAllBtn'); 
     const deselectAllBtn = document.getElementById('deselectAllBtn'); 
     const selectionControlsDiv = document.getElementById('selection-controls'); 
-    const currentLocationDisplayDiv = document.getElementById('current-location-display'); // New
-    const selectedLocationNameSpan = document.getElementById('selectedLocationName'); // New
+    const currentLocationDisplayDiv = document.getElementById('current-location-display');
+    const selectedLocationNameSpan = document.getElementById('selectedLocationName');
+    const cartResultsSection = document.getElementById('cart-results-section'); // New
+    const addedItemsListUl = document.getElementById('addedItemsList'); // New
+    const skippedItemsListUl = document.getElementById('skippedItemsList'); // New
 
 
-    // Clear previous dynamic content & set initial states
-    if (ingredientsListUl) ingredientsListUl.innerHTML = '';
-    if (locationsListDiv) locationsListDiv.innerHTML = '';
-    if (statusMessages) statusMessages.textContent = 'Checking status...'; 
+    // Initial UI State Function
+    function setInitialUIState() {
+        if (ingredientsListUl) ingredientsListUl.innerHTML = '';
+        if (locationsDropdown) {
+            locationsDropdown.innerHTML = ''; // Clear previous options
+            locationsDropdown.style.display = 'none'; // Hide dropdown initially
+            // Add a default, non-selectable option
+            const defaultOption = document.createElement('option');
+            defaultOption.textContent = "Select a store...";
+            defaultOption.value = "";
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            locationsDropdown.appendChild(defaultOption);
+        }
+        if (statusMessages) {
+            statusMessages.textContent = 'Checking status...';
+            statusMessages.className = 'status-info'; // Default class
+        }
 
-    if (authSection) authSection.style.display = 'none';
-    if (locationSection) locationSection.style.display = 'none';
-    if (youtubeSection) youtubeSection.style.display = 'none';
-    if (ingredientsSection) ingredientsSection.style.display = 'none';
-    if (saveLocationBtn) saveLocationBtn.style.display = 'none'; // Hide old save button
-    if (addToCartBtn) addToCartBtn.style.display = 'none';
-    if (selectionControlsDiv) selectionControlsDiv.style.display = 'none';
-    if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
+        if (authSection) authSection.style.display = 'none';
+        if (locationSection) locationSection.style.display = 'none';
+        if (youtubeSection) youtubeSection.style.display = 'none';
+        if (ingredientsSection) ingredientsSection.style.display = 'none';
+        if (addToCartBtn) addToCartBtn.style.display = 'none';
+        if (selectionControlsDiv) selectionControlsDiv.style.display = 'none';
+        if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
+        if (cartResultsSection) cartResultsSection.style.display = 'none'; // Hide results initially
+        if (addedItemsListUl) addedItemsListUl.innerHTML = '';
+        if (skippedItemsListUl) skippedItemsListUl.innerHTML = '';
+    }
 
+    setInitialUIState(); // Call the function to set initial states
 
     console.log("Popup DOMInit: All sections hidden initially. Fetching from storage...");
 
+    // Storage Check and UI Update
     chrome.storage.local.get(
         ['kroger_access_token', 'kroger_token_expires_in', 'kroger_token_obtained_at', 'last_selected_kroger_location_id', 'last_selected_kroger_location_name'], 
         function(result) {
-            console.log("---------------------------------------");
-            console.log("Popup Storage Callback: Data retrieved from chrome.storage.local:", result);
-            console.log("---------------------------------------");
-
+            console.log("Popup Storage Callback: Data retrieved:", result);
             const now = Date.now();
             let isValidToken = false;
 
             if (result.kroger_access_token && result.kroger_token_obtained_at && result.kroger_token_expires_in) {
-                const tokenObtainedAt = result.kroger_token_obtained_at;
-                const expiresInSeconds = result.kroger_token_expires_in;
-                const tokenAgeMs = now - tokenObtainedAt;
-                const expiresInMs = expiresInSeconds * 1000;
-                
-                console.log(`Popup Storage CB: Now = ${now}`);
-                console.log(`Popup Storage CB: Token Obtained At = ${tokenObtainedAt}`);
-                console.log(`Popup Storage CB: Expires In (seconds) = ${expiresInSeconds}`);
-                console.log(`Popup Storage CB: Token Age (ms) = ${tokenAgeMs}`);
-                console.log(`Popup Storage CB: Token Expires In (ms) = ${expiresInMs}`);
-
-                if (tokenAgeMs < expiresInMs) {
-                    isValidToken = true;
-                    console.log("Popup Storage CB: Token IS VALID.");
-                } else {
-                    isValidToken = false;
-                    console.log("Popup Storage CB: Token HAS EXPIRED.");
-                }
+                const tokenAgeMs = now - result.kroger_token_obtained_at;
+                const expiresInMs = result.kroger_token_expires_in * 1000;
+                isValidToken = tokenAgeMs < expiresInMs;
+                console.log(`Popup Storage CB: Token is ${isValidToken ? 'VALID' : 'EXPIRED/INVALID'}.`);
             } else {
-                console.log("Popup Storage CB: Token data incomplete or missing from storage.");
-                isValidToken = false;
+                console.log("Popup Storage CB: Token data incomplete.");
             }
             
-            console.log(`Popup Storage CB: Calculated isValidToken = ${isValidToken}`);
-            console.log("Popup Storage CB: last_selected_kroger_location_id:", result.last_selected_kroger_location_id);
-            console.log("Popup Storage CB: last_selected_kroger_location_name:", result.last_selected_kroger_location_name);
-
             if (isValidToken) {
-                console.log("Popup Storage CB: Path chosen: Valid Token.");
+                console.log("Popup Storage CB: Valid Token Path.");
                 if (authSection) authSection.style.display = 'none';
-                if (locationSection) locationSection.style.display = 'block'; // Location section always available if logged in
+                if (locationSection) locationSection.style.display = 'block';
 
                 if (result.last_selected_kroger_location_id) {
                     currentSelectedLocationId = result.last_selected_kroger_location_id;
                     currentSelectedLocationName = result.last_selected_kroger_location_name || "Previously Selected";
                     if (selectedLocationNameSpan) selectedLocationNameSpan.textContent = currentSelectedLocationName;
                     if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'block';
-                    if (statusMessages) statusMessages.textContent = 'Logged in. Location loaded. Ready to analyze.';
+                    if (statusMessages) {
+                        statusMessages.textContent = 'Logged in. Store loaded. Ready to analyze.';
+                        statusMessages.className = 'status-info';
+                    }
                     if (youtubeSection) youtubeSection.style.display = 'block'; 
-                    console.log("Popup Storage CB: Location loaded from storage. Showing YouTube section.");
                 } else {
-                    if (statusMessages) statusMessages.textContent = 'Logged in. Please select your Kroger store.';
+                    if (statusMessages) {
+                        statusMessages.textContent = 'Logged in. Please search and select your Kroger store.';
+                        statusMessages.className = 'status-info';
+                    }
                     if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none'; 
                     if (youtubeSection) youtubeSection.style.display = 'none'; 
-                    console.log("Popup Storage CB: No location loaded from storage. User needs to select one.");
                 }
                 
+                // Logic for showing ingredients if they exist (e.g. popup closed and reopened)
                 if (currentIngredients && currentIngredients.length > 0 && ingredientsSection && addToCartBtn) {
-                     console.log("Popup Storage CB: Showing ingredients section (from previous analysis in this popup session).");
                      if (youtubeSection) youtubeSection.style.display = 'none'; 
                      ingredientsSection.style.display = 'block';
                      if (addToCartBtn) addToCartBtn.style.display = 'block'; 
@@ -112,189 +116,265 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
             } else { 
-                console.log("Popup Storage CB: Path chosen: Invalid or No Token.");
-                if (statusMessages) statusMessages.textContent = 'Please login with Kroger.';
+                console.log("Popup Storage CB: Invalid/No Token Path.");
+                if (statusMessages) {
+                     statusMessages.textContent = 'Please login with Kroger to get started.';
+                     statusMessages.className = 'status-info';
+                }
                 if (authSection) authSection.style.display = 'block';
-                if (locationSection) locationSection.style.display = 'none';
-                if (youtubeSection) youtubeSection.style.display = 'none';
-                if (ingredientsSection) ingredientsSection.style.display = 'none';
-                if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
+                // All other sections remain hidden as per setInitialUIState
             }
-            console.log("---------------------------------------");
-            console.log("Popup Storage CB: Final display styles set:");
-            if (authSection) console.log(`Popup Storage CB: authSection.style.display = ${authSection.style.display}`);
-            if (locationSection) console.log(`Popup Storage CB: locationSection.style.display = ${locationSection.style.display}`);
-            if (youtubeSection) console.log(`Popup Storage CB: youtubeSection.style.display = ${youtubeSection.style.display}`);
-            if (ingredientsSection) console.log(`Popup Storage CB: ingredientsSection.style.display = ${ingredientsSection.style.display}`);
-            console.log("=======================================");
+            console.log("Popup Storage CB: UI setup complete.");
         }
     );
     
+    // Login Button
     const loginBtn = document.getElementById('loginBtn');
     if (loginBtn) {
         loginBtn.addEventListener('click', () => {
-            if (statusMessages) statusMessages.textContent = 'Initiating login...';
+            if (statusMessages) {
+                statusMessages.textContent = 'Initiating login...';
+                statusMessages.className = 'status-info';
+            }
             chrome.runtime.sendMessage({ type: "LOGIN_KROGER" }, (response) => {
                 if (chrome.runtime.lastError) {
-                    if (statusMessages) statusMessages.textContent = `Error initiating login: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) {
+                        statusMessages.textContent = `Login Error: ${chrome.runtime.lastError.message}`;
+                        statusMessages.className = 'status-error';
+                    }
                 } else if (response && response.error) {
-                    if (statusMessages) statusMessages.textContent = `Error initiating login: ${response.error}`;
+                    if (statusMessages) {
+                        statusMessages.textContent = `Login Error: ${response.error}`;
+                        statusMessages.className = 'status-error';
+                    }
                 } else if (response && response.success) {
-                    if (statusMessages) statusMessages.textContent = "Login process started. Please complete in the new tab.";
+                    if (statusMessages) {
+                        statusMessages.textContent = "Login process started. Please follow instructions in the new tab.";
+                        statusMessages.className = 'status-info';
+                    }
                 }
             });
         });
     }
 
+    // Location Search
     const searchLocationsBtn = document.getElementById('searchLocationsBtn');
     const zipCodeInput = document.getElementById('zipCode');
-    let selectedLocationId = null; // This was re-declared, now uses file-global currentSelectedLocationId
 
-    if (searchLocationsBtn) {
+    if (searchLocationsBtn && zipCodeInput && locationsDropdown) {
         searchLocationsBtn.addEventListener('click', () => {
             const zip = zipCodeInput.value.trim();
             const zipRegex = /^\d{5}$/;
             if (!zipRegex.test(zip)) {
-                if (statusMessages) statusMessages.textContent = "Please enter a valid 5-digit ZIP code.";
+                if (statusMessages) {
+                    statusMessages.textContent = "Please enter a valid 5-digit ZIP code.";
+                    statusMessages.className = 'status-error';
+                }
                 return;
             }
-            if (statusMessages) statusMessages.textContent = `Searching locations for ${zip}...`;
+            if (statusMessages) {
+                statusMessages.textContent = `Searching for stores in ${zip}...`;
+                statusMessages.className = 'status-info';
+            }
             searchLocationsBtn.disabled = true;
             zipCodeInput.disabled = true;
-            if (locationsListDiv) locationsListDiv.innerHTML = ''; 
-            // if (saveLocationBtn) saveLocationBtn.style.display = 'none'; // saveLocationBtn is no longer used for backend save
-            currentSelectedLocationId = null; // Reset global
-            currentSelectedLocationName = null; // Reset global
-            if (selectedLocationNameSpan) selectedLocationNameSpan.textContent = "None selected";
-            if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
-
+            locationsDropdown.innerHTML = ''; // Clear previous options
+            const defaultOption = document.createElement('option'); // Re-add default
+            defaultOption.textContent = "Loading stores...";
+            defaultOption.value = "";
+            defaultOption.disabled = true;
+            defaultOption.selected = true;
+            locationsDropdown.appendChild(defaultOption);
+            locationsDropdown.style.display = 'none'; // Hide while loading
 
             chrome.runtime.sendMessage({ type: "SEARCH_KROGER_LOCATIONS", zipCode: zip }, (response) => {
                 searchLocationsBtn.disabled = false;
                 zipCodeInput.disabled = false;
                 if (chrome.runtime.lastError) {
-                    if (statusMessages) statusMessages.textContent = `Error searching locations: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) {
+                        statusMessages.textContent = `Location Search Error: ${chrome.runtime.lastError.message}`;
+                        statusMessages.className = 'status-error';
+                    }
+                    locationsDropdown.style.display = 'none';
                 } else if (response && response.error) {
-                    if (statusMessages) statusMessages.textContent = `Error searching locations: ${response.error}`;
+                    if (statusMessages) {
+                        statusMessages.textContent = `Location Search Error: ${response.error}`;
+                        statusMessages.className = 'status-error';
+                    }
+                    locationsDropdown.style.display = 'none';
                 } else if (response && response.success && response.locations) {
-                    if (statusMessages) statusMessages.textContent = response.locations.length > 0 ? `Found locations for ${zip}. Select one.` : `No locations found for ${zip}.`;
+                    if (statusMessages) {
+                        statusMessages.textContent = response.locations.length > 0 ? `Found ${response.locations.length} stores. Select one below.` : `No stores found for ${zip}. Try another ZIP.`;
+                        statusMessages.className = response.locations.length > 0 ? 'status-success' : 'status-info';
+                    }
                     renderLocations(response.locations);
+                    locationsDropdown.style.display = response.locations.length > 0 ? 'block' : 'none';
                 }
             });
         });
     }
 
+    // Render Locations in Dropdown
     function renderLocations(locations) {
-        // const currentLocationDisplayDiv, selectedLocationNameSpan, youtubeSection, statusMessages defined above
-        if (!locationsListDiv) return;
-        locationsListDiv.innerHTML = ''; 
+        if (!locationsDropdown) return;
+        locationsDropdown.innerHTML = ''; // Clear "Loading..." or previous results
+
+        if (!locations || locations.length === 0) {
+            const noResultsOption = document.createElement('option');
+            noResultsOption.textContent = "No stores found";
+            noResultsOption.value = "";
+            noResultsOption.disabled = true;
+            locationsDropdown.appendChild(noResultsOption);
+            locationsDropdown.selectedIndex = 0; // Select this default
+            return;
+        }
+
+        const selectPromptOption = document.createElement('option');
+        selectPromptOption.textContent = "Select a store...";
+        selectPromptOption.value = "";
+        selectPromptOption.disabled = true;
+        selectPromptOption.selected = true; // Default selected
+        locationsDropdown.appendChild(selectPromptOption);
 
         locations.forEach(location => {
-            const locDiv = document.createElement('div');
+            const option = document.createElement('option');
             let displayName = location.name || location.locationId;
             if (location.address && location.address.addressLine1) {
                 displayName = `${location.name} (${location.address.addressLine1})`;
             }
+            option.value = location.locationId;
+            option.textContent = displayName;
+            option.dataset.locationName = displayName; // Store name for display
+            locationsDropdown.appendChild(option);
+        });
+        locationsDropdown.style.display = 'block';
+    }
 
-            locDiv.textContent = displayName;
-            locDiv.dataset.locationId = location.locationId;
-            locDiv.dataset.locationName = displayName; 
+    // Location Dropdown Change Listener
+    if (locationsDropdown) {
+        locationsDropdown.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (!selectedOption || !selectedOption.value) { // Handle the prompt/disabled option
+                currentSelectedLocationId = null;
+                currentSelectedLocationName = null;
+                if (selectedLocationNameSpan) selectedLocationNameSpan.textContent = "None selected";
+                if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
+                if (youtubeSection) youtubeSection.style.display = 'none';
+                return;
+            }
 
-            locDiv.addEventListener('click', () => {
-                const previouslySelected = locationsListDiv.querySelector('.selected');
-                if (previouslySelected) {
-                    previouslySelected.classList.remove('selected');
-                }
-                locDiv.classList.add('selected');
-                
-                currentSelectedLocationId = locDiv.dataset.locationId;
-                currentSelectedLocationName = locDiv.dataset.locationName;
+            currentSelectedLocationId = selectedOption.value;
+            currentSelectedLocationName = selectedOption.dataset.locationName || selectedOption.textContent;
 
-                if (selectedLocationNameSpan) selectedLocationNameSpan.textContent = currentSelectedLocationName;
-                if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'block';
-                if (statusMessages) statusMessages.textContent = `Selected Store: ${currentSelectedLocationName}`;
-                
-                chrome.storage.local.set({ 
-                    last_selected_kroger_location_id: currentSelectedLocationId,
-                    last_selected_kroger_location_name: currentSelectedLocationName 
-                }, () => {
-                    console.log("Popup: Last selected location saved to storage.");
-                });
+            if (selectedLocationNameSpan) selectedLocationNameSpan.textContent = currentSelectedLocationName;
+            if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'block';
+            if (statusMessages) {
+                statusMessages.textContent = `Store Selected: ${currentSelectedLocationName}`;
+                statusMessages.className = 'status-success';
+            }
 
-                if (youtubeSection) youtubeSection.style.display = 'block';
-                if (ingredientsSection && ingredientsSection.style.display === 'block' && currentIngredients && currentIngredients.length > 0) {
-                     if (youtubeSection) youtubeSection.style.display = 'none'; 
-                }
+            chrome.storage.local.set({
+                last_selected_kroger_location_id: currentSelectedLocationId,
+                last_selected_kroger_location_name: currentSelectedLocationName
+            }, () => {
+                console.log("Popup: Last selected location saved to storage.");
             });
-            locationsListDiv.appendChild(locDiv);
+
+            if (youtubeSection) youtubeSection.style.display = 'block';
+            if (ingredientsSection && ingredientsSection.style.display === 'block' && currentIngredients && currentIngredients.length > 0) {
+                 if (youtubeSection) youtubeSection.style.display = 'none';
+            }
+            // Hide cart results if a new location is chosen after a cart operation
+            if (cartResultsSection) cartResultsSection.style.display = 'none';
         });
     }
 
-    if (saveLocationBtn) { 
-      saveLocationBtn.style.display = 'none'; 
-    }
-
-
+    // Analyze Video Button
     const analyzeVideoBtn = document.getElementById('analyzeVideoBtn');
-    // currentIngredients, ingredientsSection, ingredientsListUl, addToCartBtn defined above
-    
-    if (selectionControlsDiv) selectionControlsDiv.style.display = 'none'; // Initial hide for selection controls
-
     if (analyzeVideoBtn) {
         analyzeVideoBtn.addEventListener('click', () => {
-            // ... (analyzeVideoBtn logic remains mostly the same as previous step)
-            if (statusMessages) statusMessages.textContent = "Analyzing video...";
+            if (statusMessages) {
+                statusMessages.textContent = "Requesting video details...";
+                statusMessages.className = 'status-info';
+            }
             analyzeVideoBtn.disabled = true;
             if (ingredientsSection) ingredientsSection.style.display = 'none';
             if (ingredientsListUl) ingredientsListUl.innerHTML = '';
+            if (cartResultsSection) cartResultsSection.style.display = 'none'; // Hide old results
 
             chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
                 if (!tabs[0] || !tabs[0].id) {
-                    if (statusMessages) statusMessages.textContent = "Cannot identify active tab.";
+                    if (statusMessages) {
+                        statusMessages.textContent = "Error: Cannot identify active tab.";
+                        statusMessages.className = 'status-error';
+                    }
                     analyzeVideoBtn.disabled = false;
                     return;
                 }
                 if (tabs[0].url && tabs[0].url.includes("youtube.com/watch")) {
                     chrome.tabs.sendMessage(tabs[0].id, { type: "GET_YOUTUBE_VIDEO_DETAILS" }, (videoDetails) => {
                         if (chrome.runtime.lastError) {
-                            if (statusMessages) statusMessages.textContent = `Error getting video details: ${chrome.runtime.lastError.message}`;
+                            if (statusMessages) {
+                                statusMessages.textContent = `Video Details Error: ${chrome.runtime.lastError.message}`;
+                                statusMessages.className = 'status-error';
+                            }
                             analyzeVideoBtn.disabled = false;
                             return;
                         }
                         if (videoDetails) {
-                            console.log("Popup: Received video details from content script:", videoDetails);
-                            if (statusMessages) statusMessages.textContent = "Video details received. Analyzing for ingredients...";
+                            if (statusMessages) {
+                                statusMessages.textContent = "Analyzing video for ingredients...";
+                                statusMessages.className = 'status-info';
+                            }
                             chrome.runtime.sendMessage({ type: "ANALYZE_VIDEO_CONTENT", videoDetails: videoDetails }, (analysisResponse) => {
                                 analyzeVideoBtn.disabled = false;
                                 if (chrome.runtime.lastError) {
-                                    if (statusMessages) statusMessages.textContent = `Analysis error: ${chrome.runtime.lastError.message}`;
+                                    if (statusMessages) {
+                                        statusMessages.textContent = `Analysis Error: ${chrome.runtime.lastError.message}`;
+                                        statusMessages.className = 'status-error';
+                                    }
                                 } else if (analysisResponse && analysisResponse.error) {
-                                    if (statusMessages) statusMessages.textContent = `Analysis error: ${analysisResponse.error}`;
+                                    if (statusMessages) {
+                                        statusMessages.textContent = `Analysis Error: ${analysisResponse.error}`;
+                                        statusMessages.className = 'status-error';
+                                    }
                                 } else if (analysisResponse && analysisResponse.success && analysisResponse.ingredients) {
-                                    if (statusMessages) statusMessages.textContent = "Ingredients found!";
+                                    if (statusMessages) {
+                                        statusMessages.textContent = "Ingredients found! Review and add to cart.";
+                                        statusMessages.className = 'status-success';
+                                    }
                                     renderIngredients(analysisResponse.ingredients);
+                                    if (youtubeSection) youtubeSection.style.display = 'none'; // Hide analyze button, show ingredients
                                 } else {
-                                    if (statusMessages) statusMessages.textContent = "No ingredients found or unexpected response from analysis.";
+                                    if (statusMessages) {
+                                        statusMessages.textContent = "No ingredients found or analysis failed.";
+                                        statusMessages.className = 'status-info';
+                                    }
+                                    if (youtubeSection) youtubeSection.style.display = 'block'; // Show analyze button again
                                 }
                             });
                         } else {
-                            if (statusMessages) statusMessages.textContent = "Could not retrieve details from video page.";
+                            if (statusMessages) {
+                                statusMessages.textContent = "Could not retrieve details from the video page.";
+                                statusMessages.className = 'status-error';
+                            }
                             analyzeVideoBtn.disabled = false;
                         }
                     });
                 } else {
-                    if (statusMessages) statusMessages.textContent = "Please navigate to a YouTube video page (youtube.com/watch?v=...).";
+                    if (statusMessages) {
+                        statusMessages.textContent = "Please navigate to a YouTube video page (youtube.com/watch?v=...).";
+                        statusMessages.className = 'status-error';
+                    }
                     analyzeVideoBtn.disabled = false;
                 }
             });
         });
     }
 
+    // Render Ingredients
     function renderIngredients(ingredients) {
-        if (!ingredientsListUl || !addToCartBtn || !ingredientsSection || !selectionControlsDiv) {
-            console.error("Required DOM elements for rendering ingredients are missing.");
-            return;
-        }
+        if (!ingredientsListUl || !addToCartBtn || !ingredientsSection || !selectionControlsDiv) return;
         ingredientsListUl.innerHTML = ''; 
         currentIngredients = []; 
 
@@ -314,13 +394,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 checkbox.id = ingredientObj.id;
                 checkbox.value = ingredientName;
                 checkbox.checked = ingredientObj.checked;
-                checkbox.dataset.ingredientName = ingredientName;
+                checkbox.dataset.ingredientName = ingredientName; // Keep for consistency if needed
                 checkbox.addEventListener('change', (event) => {
                     const changedIngredient = currentIngredients.find(item => item.id === event.target.id);
-                    if (changedIngredient) {
-                        changedIngredient.checked = event.target.checked;
-                        console.log("Updated currentIngredients:", currentIngredients);
-                    }
+                    if (changedIngredient) changedIngredient.checked = event.target.checked;
                 });
                 const label = document.createElement('label');
                 label.htmlFor = ingredientObj.id;
@@ -329,12 +406,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 li.appendChild(label);
                 ingredientsListUl.appendChild(li);
             });
-            addToCartBtn.textContent = "Add Selected to Cart"; 
             addToCartBtn.style.display = 'block';
             selectionControlsDiv.style.display = 'block';
         } else {
             const li = document.createElement('li');
-            li.textContent = "No ingredients listed.";
+            li.textContent = "No ingredients were identified.";
             ingredientsListUl.appendChild(li);
             addToCartBtn.style.display = 'none'; 
             selectionControlsDiv.style.display = 'none';
@@ -342,26 +418,21 @@ document.addEventListener('DOMContentLoaded', function() {
         ingredientsSection.style.display = 'block';
     }
 
-    if (selectAllBtn) {
+    // Select/Deselect All Buttons
+    if (selectAllBtn && ingredientsListUl) {
         selectAllBtn.addEventListener('click', () => {
-            console.log("Select All clicked");
-            const checkboxes = ingredientsListUl.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => { checkbox.checked = true; });
-            currentIngredients.forEach(ingredient => ingredient.checked = true);
-            console.log("Updated currentIngredients (all selected):", currentIngredients);
+            ingredientsListUl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = true);
+            currentIngredients.forEach(ing => ing.checked = true);
         });
     }
-
-    if (deselectAllBtn) {
+    if (deselectAllBtn && ingredientsListUl) {
         deselectAllBtn.addEventListener('click', () => {
-            console.log("Deselect All clicked");
-            const checkboxes = ingredientsListUl.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => { checkbox.checked = false; });
-            currentIngredients.forEach(ingredient => ingredient.checked = false);
-            console.log("Updated currentIngredients (all deselected):", currentIngredients);
+            ingredientsListUl.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+            currentIngredients.forEach(ing => ing.checked = false);
         });
     }
 
+    // Add to Cart Button
     if (addToCartBtn) {
         addToCartBtn.addEventListener('click', () => {
             const selectedIngredients = currentIngredients
@@ -369,62 +440,129 @@ document.addEventListener('DOMContentLoaded', function() {
                 .map(ingredient => ingredient.name);
 
             if (!currentSelectedLocationId) { 
-                if (statusMessages) statusMessages.textContent = "Please select a Kroger store location first!";
+                if (statusMessages) {
+                    statusMessages.textContent = "Please select a Kroger store location first!";
+                    statusMessages.className = 'status-error';
+                }
                 return;
             }
             if (!selectedIngredients || selectedIngredients.length === 0) {
-                if (statusMessages) statusMessages.textContent = "No ingredients selected to add.";
+                if (statusMessages) {
+                    statusMessages.textContent = "No ingredients selected to add.";
+                    statusMessages.className = 'status-info';
+                }
                 return;
             }
             
-            if (statusMessages) statusMessages.textContent = "Adding selected ingredients to cart... This may take a moment.";
+            if (statusMessages) {
+                statusMessages.textContent = "Adding to cart... This might take a moment.";
+                statusMessages.className = 'status-info';
+            }
             addToCartBtn.disabled = true; 
+            if (cartResultsSection) cartResultsSection.style.display = 'none'; // Hide previous results
+            if (addedItemsListUl) addedItemsListUl.innerHTML = '';
+            if (skippedItemsListUl) skippedItemsListUl.innerHTML = '';
+
 
             chrome.runtime.sendMessage({ 
                 type: "ADD_INGREDIENTS_TO_KROGER_CART", 
                 ingredients: selectedIngredients,
-                locationId: currentSelectedLocationId // Pass selected location ID
+                locationId: currentSelectedLocationId
             }, (response) => {
                 addToCartBtn.disabled = false; 
                 if (chrome.runtime.lastError) {
-                    if (statusMessages) statusMessages.textContent = `Error adding to cart: ${chrome.runtime.lastError.message}`;
-                } else if (response && response.error) {
-                    if (statusMessages) statusMessages.textContent = `Error adding to cart: ${response.error}`;
-                } else if (response && response.success) {
-                    let successMessage = "Successfully processed selected items for cart!";
-                    if (response.summary) {
-                        successMessage += ` Added: ${response.summary.added}, Skipped: ${response.summary.skipped} (Reason: ${response.summary.skippedReason || 'not found/error'}).`;
-                        if(response.summary.errors > 0) {
-                             successMessage += ` Errors: ${response.summary.errors}.`;
-                        }
+                    if (statusMessages) {
+                        statusMessages.textContent = `Cart Error: ${chrome.runtime.lastError.message}`;
+                        statusMessages.className = 'status-error';
                     }
-                    if (statusMessages) statusMessages.textContent = successMessage;
+                } else if (response && response.error) {
+                    if (statusMessages) {
+                        statusMessages.textContent = `Cart Error: ${response.error}`;
+                        statusMessages.className = 'status-error';
+                    }
+                } else if (response && response.success) {
+                    let msgText = "Cart operation complete.";
+                    if (response.summary) {
+                        msgText = `Added ${response.summary.added_items.length} items, ${response.summary.skipped_items.length} skipped.`;
+                        renderCartResults(response.summary.added_items, response.summary.skipped_items);
+                        if (cartResultsSection) cartResultsSection.style.display = 'block';
+                    }
+                    if (statusMessages) {
+                        statusMessages.textContent = msgText;
+                        statusMessages.className = 'status-success';
+                    }
                 } else {
-                     if (statusMessages) statusMessages.textContent = "Unknown response after adding to cart.";
+                     if (statusMessages) {
+                        statusMessages.textContent = "Unknown response after adding to cart.";
+                        statusMessages.className = 'status-error';
+                     }
                 }
             });
         });
     }
+
+    // Render Cart Results
+    function renderCartResults(addedItems, skippedItems) {
+        if (!addedItemsListUl || !skippedItemsListUl) return;
+        addedItemsListUl.innerHTML = '';
+        skippedItemsListUl.innerHTML = '';
+
+        if (addedItems && addedItems.length > 0) {
+            addedItems.forEach(item => {
+                const li = document.createElement('li');
+                li.textContent = typeof item === 'string' ? item : item.name; // Assuming item might be object
+                li.className = 'added-item';
+                addedItemsListUl.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.textContent = "No items were successfully added.";
+            addedItemsListUl.appendChild(li);
+        }
+
+        if (skippedItems && skippedItems.length > 0) {
+            skippedItems.forEach(item => {
+                const li = document.createElement('li');
+                let skippedText = typeof item === 'string' ? item : item.name; // Assuming item might be object
+                let reason = item.reason || 'Not found or error';
+
+                li.textContent = `${skippedText}`;
+                li.className = 'skipped-item';
+
+                const reasonSpan = document.createElement('span');
+                reasonSpan.className = 'skipped-reason';
+                reasonSpan.textContent = ` (${reason})`;
+                li.appendChild(reasonSpan);
+                skippedItemsListUl.appendChild(li);
+            });
+        } else {
+            const li = document.createElement('li');
+            li.textContent = "No items were skipped.";
+            skippedItemsListUl.appendChild(li);
+        }
+    }
+
+
 });
 
-// Message listener from background script
+// Message listener from background script (for Auth updates)
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     const statusMessages = document.getElementById('status-messages'); 
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
     const youtubeSection = document.getElementById('youtube-section');
-    const ingredientsSection = document.getElementById('ingredients-section'); 
-    const currentLocationDisplayDiv = document.getElementById('current-location-display'); // Added
-    const selectedLocationNameSpan = document.getElementById('selectedLocationName'); // Added
-
+    const currentLocationDisplayDiv = document.getElementById('current-location-display');
+    const selectedLocationNameSpan = document.getElementById('selectedLocationName');
 
     console.log("Popup: Received message from background:", message);
     if (message.type === "AUTH_SUCCESS") {
-        if (statusMessages) statusMessages.textContent = 'Login successful! Please select your store.';
+        if (statusMessages) {
+            statusMessages.textContent = 'Login successful! Please select your store if not already set.';
+            statusMessages.className = 'status-success';
+        }
         if (authSection) authSection.style.display = 'none';
         if (locationSection) locationSection.style.display = 'block'; 
-        if (youtubeSection) youtubeSection.style.display = 'none';
-        if (ingredientsSection) ingredientsSection.style.display = 'none'; 
+        // Don't hide youtube section immediately, let storage check handle it
         
         chrome.storage.local.get(['last_selected_kroger_location_id', 'last_selected_kroger_location_name'], function(result) {
             if (result.last_selected_kroger_location_id) {
@@ -432,22 +570,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 currentSelectedLocationName = result.last_selected_kroger_location_name || "Previously Selected";
                 if (selectedLocationNameSpan) selectedLocationNameSpan.textContent = currentSelectedLocationName;
                 if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'block';
-                if (statusMessages) statusMessages.textContent = 'Logged in. Location loaded. Ready to analyze.';
                 if (youtubeSection) youtubeSection.style.display = 'block';
             } else {
-                if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
-                if (selectedLocationNameSpan) selectedLocationNameSpan.textContent = "None selected";
+                // User needs to select a location
                 if (youtubeSection) youtubeSection.style.display = 'none';
             }
         });
-        console.log("Popup: Auth success, UI updated for location selection or loaded location.");
+        console.log("Popup: Auth success, UI updated.");
 
     } else if (message.type === "AUTH_FAILURE") {
-        if (statusMessages) statusMessages.textContent = `Login failed: ${message.error}`;
+        if (statusMessages) {
+            statusMessages.textContent = `Login failed: ${message.error || 'Unknown error'}`;
+            statusMessages.className = 'status-error';
+        }
         if (authSection) authSection.style.display = 'block'; 
         if (locationSection) locationSection.style.display = 'none';
         if (youtubeSection) youtubeSection.style.display = 'none';
-        if (ingredientsSection) ingredientsSection.style.display = 'none'; 
         if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
         console.log("Popup: Auth failure.");
     }

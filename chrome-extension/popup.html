@@ -3,35 +3,55 @@
 <head>
     <title>YouCart</title>
     <link rel="stylesheet" type="text/css" href="style.css">
+    <!-- The @import in style.css will handle the font, or it can be linked here if preferred -->
 </head>
 <body>
-    <h1>Welcome to YouCart!</h1>
-    <p>Loading...</p>
+    <h1>YouCart</h1> <!-- Simplified Title -->
+    <div id="status-messages">Loading...</div> <!-- Moved status messages up, will be styled -->
+
     <div id="auth-section">
         <button id="loginBtn">Login with Kroger</button>
     </div>
+
     <div id="location-section" style="display:none;">
-        <input type="text" id="zipCode" placeholder="Enter ZIP Code">
-        <button id="searchLocationsBtn">Search Locations</button>
-        <div id="locationsList"></div>
-        <button id="saveLocationBtn" style="display:none;">Save Location</button> <!-- Will be removed/repurposed in JS -->
+        <input type="text" id="zipCode" placeholder="Enter 5-digit ZIP Code">
+        <button id="searchLocationsBtn">Search Stores</button>
+        <!-- Changed div to select for dropdown -->
+        <select id="locationsDropdown" style="display:none;"></select>
+        <!-- Save Location button is removed as selection now implies saving -->
     </div>
-    <div id="current-location-display" style="margin-top: 10px; padding: 5px; border: 1px solid #ddd; display: none;">
+
+    <div id="current-location-display" style="display: none;"> <!-- Styling handled by CSS -->
         <strong>Current Store:</strong> <span id="selectedLocationName">None selected</span>
     </div>
+
     <div id="youtube-section" style="display:none;">
-        <button id="analyzeVideoBtn">Analyze Video for Ingredients</button>
+        <button id="analyzeVideoBtn">Analyze YouTube Video</button>
     </div>
+
     <div id="ingredients-section" style="display:none;">
-        <h2>Ingredients:</h2>
+        <h2>Ingredients Found</h2>
         <ul id="ingredientsList"></ul>
-        <div id="selection-controls" style="margin-top: 5px; margin-bottom: 5px;">
-            <button id="selectAllBtn" style="margin-right: 5px;">Select All</button>
+        <div id="selection-controls" style="display:none;">
+            <button id="selectAllBtn">Select All</button>
             <button id="deselectAllBtn">Deselect All</button>
         </div>
-        <button id="addToCartBtn">Add Selected to Cart</button> <!-- Text already updated in previous task -->
+        <button id="addToCartBtn" style="display:none;">Add Selected to Cart</button>
     </div>
-    <div id="status-messages"></div>
+
+    <!-- New section for displaying cart results -->
+    <div id="cart-results-section" style="display:none;">
+        <h3>Cart Update Summary</h3>
+        <h4>Added to Cart:</h4>
+        <ul id="addedItemsList">
+            <!-- Items added will be populated here -->
+        </ul>
+        <h4>Skipped (Not Found/Error):</h4>
+        <ul id="skippedItemsList">
+            <!-- Items skipped will be populated here -->
+        </ul>
+    </div>
+
     <script src="popup.js"></script>
 </body>
 </html>
