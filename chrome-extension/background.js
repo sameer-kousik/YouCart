@@ -2,7 +2,7 @@
 // ####################################################################################
 // # IMPORTANT: REPLACE WITH YOUR ACTUAL KROGER CLIENT ID BEFORE RUNNING THE EXTENSION #
 // # You can get this from your Kroger Developer Portal account.                       #
-const KROGER_CLIENT_ID = "test_kroger_client_id_from_user_input"; // <--- REPLACE THIS!!!
+const KROGER_CLIENT_ID = "youcart-2432612430342445485a5a477273704a627733736250477a4632716b755065315637767a694b6766726662436642514c6b466e716e366b61376c34435477106669341475649"; // <--- REPLACE THIS!!!
 // ####################################################################################
 const BACKEND_URL = "http://localhost:8000"; // Or your actual backend URL
 
@@ -118,7 +118,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // If it were, you would fetch it from chrome.storage.local first.
         fetch(`${BACKEND_URL}/get_ingredients`, {
             method: 'POST',
-            headers: {
+            headers: { 
                 'Content-Type': 'application/json'
                 // No Authorization header needed if /get_ingredients is public
             },
@@ -127,7 +127,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then(response => {
             if (!response.ok) {
                 // Try to parse error detail from backend's JSON response
-                return response.json().then(err => {
+                return response.json().then(err => { 
                     // Prefer err.detail if available, otherwise construct a message
                     let errorMessage = "HTTP error! Status: " + response.status;
                     if (err && err.detail) {
@@ -154,28 +154,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             console.error("Background: Error getting ingredients from backend:", error);
             sendResponse({ success: false, error: error.message });
         });
-
+        
         return true; // Required for async sendResponse
     }
     else if (message.type === "ADD_INGREDIENTS_TO_KROGER_CART") {
-        console.log("Background: ADD_INGREDIENTS_TO_KROGER_CART received", message.ingredients);
+        console.log("Background: ADD_INGREDIENTS_TO_KROGER_CART received with ingredients:", message.ingredients, "and locationId:", message.locationId);
         const ingredientsToAdd = message.ingredients;
+        const locationIdFromPopup = message.locationId; // Get locationId from message
 
         if (!ingredientsToAdd || ingredientsToAdd.length === 0) {
             sendResponse({ success: false, error: "No ingredients provided." });
-            return false; // No async work needed
+            return false; 
         }
 
-        chrome.storage.local.get(['kroger_access_token', 'kroger_location_id'], async function(storageData) {
-            if (!storageData.kroger_access_token || !storageData.kroger_location_id) {
-                sendResponse({ success: false, error: "User not authenticated or location not set." });
-                return;
+        if (!locationIdFromPopup) { // Check if locationId was provided by popup
+            sendResponse({ success: false, error: "Location ID not provided by popup for cart operation." });
+            return false; 
+        }
+
+        // Only need the access token from storage now for this operation
+        chrome.storage.local.get(['kroger_access_token'], async function(storageData) {
+            if (!storageData.kroger_access_token) {
+                sendResponse({ success: false, error: "User not authenticated (no access token)." });
+                return; // Exit if no token
             }
 
             const accessToken = storageData.kroger_access_token;
-            // Note: kroger_location_id is available in storageData, 
-            // but /process_ingredient backend endpoint uses token_to_location_id_map with the Bearer token.
-
+            
             let addedCount = 0;
             let skippedCount = 0;
             let errorCount = 0;
@@ -185,46 +190,70 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             for (const ingredient of ingredientsToAdd) {
                 const ingredientName = typeof ingredient === 'string' ? ingredient : ingredient.name;
                 try {
+                    console.log(`Background: Processing ingredient '${ingredientName}' for location '${locationIdFromPopup}'`);
                     const response = await fetch(`${BACKEND_URL}/process_ingredient`, {
                         method: 'POST',
                         headers: {
                             'Authorization': `Bearer ${accessToken}`,
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ ingredient: ingredientName }) 
+                        body: JSON.stringify({ 
+                            ingredient: ingredientName, 
+                            location_id: locationIdFromPopup // Pass the location_id from popup to backend
+                        }) 
                     });
 
+                    // Refined error and response handling
                     if (!response.ok) {
-                        let errorDetail = "Failed to process ingredient.";
+                        let errorDetail = `Failed to process ingredient '${ingredientName}'. Status: ${response.status}`;
                         try {
                             const errJson = await response.json();
-                            errorDetail = errJson.detail || errorDetail;
-                        } catch (e) { /* Ignore */ }
-                        console.warn(`Processing '${ingredientName}': Status ${response.status}, Detail: ${errorDetail}`);
-                        if (response.status === 404 || (typeof errorDetail === 'string' && errorDetail.includes("not found")) ) {
+                            // Backend now returns {status: "error", reason: ..., kroger_status_code: ...}
+                            if (errJson && errJson.reason) {
+                                errorDetail = errJson.reason;
+                            } else if (errJson && errJson.detail) { // Fallback for other HTTPException details
+                                errorDetail = typeof errJson.detail === 'string' ? errJson.detail : JSON.stringify(errJson.detail);
+                            }
+                        } catch (e) { /* Ignore if error response is not JSON */ }
+                        
+                        console.warn(`Processing '${ingredientName}': ${errorDetail}`);
+                        // Use the status from backend if available, otherwise infer from HTTP status
+                        // The backend /process_ingredient now returns JSON with status:"error" for Kroger errors.
+                        let backendStatusFailed = false;
+                        try {
+                            const tempErrJson = await response.json(); // Re-parse or use stored if possible
+                            if (tempErrJson.status === "error" || tempErrJson.status === "skipped") backendStatusFailed = true;
+                        } catch(e) { /* ignore */ }
+
+                        if (backendStatusFailed || response.status === 404 || (typeof errorDetail === 'string' && errorDetail.toLowerCase().includes("not found")) ) {
                             skippedCount++;
-                            lastSkippedReason = "product not found";
+                            lastSkippedReason = errorDetail || "product not found";
                         } else {
                             errorCount++;
                         }
                         continue; 
                     }
 
-                    const result = await response.json();
-                    console.log(`Background: Processed '${ingredientName}', result:`, result);
+                    const result = await response.json(); // Expecting {status: "added/skipped/error", ...}
+                    console.log(`Background: Processed '${ingredientName}', backend result:`, result);
                     if (result.status === "added") {
                         addedCount++;
                     } else if (result.status === "skipped") {
                         skippedCount++;
                         lastSkippedReason = result.reason || "skipped by backend";
-                    } else {
+                    } else if (result.status === "error") {
+                        errorCount++;
+                        lastSkippedReason = result.reason || "error from backend"; // Capture reason if provided
+                    }
+                     else {
                         console.warn("Unexpected status from /process_ingredient:", result);
                         errorCount++; 
                     }
 
-                } catch (error) {
-                    console.error(`Background: Error processing ingredient '${ingredientName}':`, error);
+                } catch (error) { // Catch network errors for the fetch itself
+                    console.error(`Background: Network or other error processing ingredient '${ingredientName}':`, error);
                     errorCount++;
+                    lastSkippedReason = error.message; // Capture general error message
                 }
             }
 

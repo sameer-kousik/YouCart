@@ -3,7 +3,7 @@ from auth import router as auth_router
 from auth import get_current_user_token 
 # from auth import user_tokens # Will be replaced by token-based auth
 from product import search_products, add_product_to_cart 
-from location import token_to_location_id_map 
+# from location import token_to_location_id_map # No longer needed here directly
 # from location import user_locations # Will be replaced by token-based auth
 from fastapi.responses import JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -13,16 +13,28 @@ from product import router as product_router
 # from cart import router as cart_router
 # from cart import handle_add_to_cart  
 from typing import Optional # Add this import
-from typing import Optional # Add this import
 from pydantic import BaseModel
 import requests
 from llm import get_ingredients_from_ai
+from fastapi.middleware.cors import CORSMiddleware
 
 KROGER_API_BASE = "https://api.kroger.com/v1"
 app = FastAPI()
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+# Path to the directory containing main.py
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+
+
+app.include_router(auth_router, prefix="/auth") # Added /auth prefix
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static") # Use robust path, ensure only one mount
+app.include_router(product_router)
+from location import router as location_router # Import location router
+app.include_router(location_router) # Include location router
+#app.include_router(cart_router)
+
 
 EXTENSION_ID = "gnbofkahkklcaejogidhhfodbelabiin" # Your exact Extension ID
 
@@ -39,21 +51,6 @@ app.add_middleware(
     allow_headers=["*"], # Crucial for preflight OPTIONS requests
 )
 
-
-# Path to the directory containing main.py
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-
-
-app.include_router(auth_router, prefix="/auth") # Added /auth prefix
-templates = Jinja2Templates(directory=TEMPLATES_DIR)
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static") # Use robust path, ensure only one mount
-app.include_router(product_router)
-from location import router as location_router # Import location router
-app.include_router(location_router) # Include location router
-#app.include_router(cart_router)
-
 @app.get("/")
 async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
@@ -66,8 +63,6 @@ class AddToCartRequest(BaseModel): # This is defined twice, will clean up later 
 class VideoRequest(BaseModel):
     title: str
     link: str
-    description: str
-    transcript_url: Optional[str] = None # Changed from transcript: str
     description: str
     transcript_url: Optional[str] = None # Changed from transcript: str
 
@@ -132,8 +127,7 @@ def add_to_cart(request_body: AddToCartRequest, request: Request, token: str = D
         raise HTTPException(status_code=400, detail="Location not set for this token. Please save a location first.")
     location_id = token_to_location_id_map[token]
     
-    print('here here here') # Debugging print
-    print(location_id)
+    # print('here here here') # Debugging print
     headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"} # Use injected token
     url = f"{KROGER_API_BASE}/cart/add"
 
@@ -163,6 +157,8 @@ def add_to_cart(request_body: AddToCartRequest, request: Request, token: str = D
 
 @app.post("/get_ingredients")
 async def get_ingredients(request: VideoRequest):
+    print(request)
+    print(f"DEBUG Main: /get_ingredients received request with title: '{request.title}', link: '{request.link}', description: '{request.description}', transcript_url: '{request.transcript_url}'")
     try:
         # Call the function from llm.py with new arguments
         ingredients = get_ingredients_from_ai(
@@ -181,59 +177,64 @@ async def get_ingredients(request: VideoRequest):
 
 class ProcessIngredientRequest(BaseModel):
     ingredient: str
+    location_id: str # New field
 
 @app.post("/process_ingredient")
-async def process_ingredient(request: ProcessIngredientRequest, token: str = Depends(get_current_user_token)): # Removed request_obj: Request
-    try: # UNCOMMENTED
-        # Retrieve the user's saved location and token
-        #print(token_to_location_id_map)
-        if token not in token_to_location_id_map:
-            # THIS IS THE EXCEPTION WE ARE TESTING
-            raise HTTPException(status_code=400, detail="Location not set for this token. Please save a location first.") 
-    
-        location_id = token_to_location_id_map[token] # This line should be indented under try
+async def process_ingredient(request: ProcessIngredientRequest, token: str = Depends(get_current_user_token)):
+    try:
+        # Location ID is now passed directly in the request
+        location_id = request.location_id 
+        kroger_api_token = token # Token from Depends(get_current_user_token)
 
-        # All subsequent logic also needs to be indented under try
-        product_search_result = search_products(token, request.ingredient, location_id) 
-        # print(product_search_result) # For debugging
+        print(f"DEBUG Main: /process_ingredient received ingredient: '{request.ingredient}', location_id: '{location_id}' using token (first 10 chars): {kroger_api_token[:10]}...")
 
-        if not product_search_result or \
-           not isinstance(product_search_result, dict) or \
-           "upc" not in product_search_result: 
-            return {"status": "skipped", "reason": "Product not found or invalid product data from search_products"} 
+        # Call search_products with the Kroger API token and the provided location_id
+        # Ensure search_products is called with keyword arguments if its signature was changed to include kroger_api_token explicitly
+        product = search_products(token=kroger_api_token, query=request.ingredient, location_id=location_id)
         
-        product_upc = product_search_result["upc"] 
+        if not product or not product.get("upc"): # Check if product is None or product dictionary is missing 'upc'
+            print(f"DEBUG Main: Product '{request.ingredient}' not found or missing UPC for location '{location_id}'.")
+            return {"status": "skipped", "ingredient": request.ingredient, "reason": "Product not found by search_products or UPC missing"}
 
-        headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"} 
-        url = f"{KROGER_API_BASE}/cart/add" 
+        print(f"DEBUG Main: Product found: {product.get('description', 'N/A')} (UPC: {product.get('upc')})")
 
-        payload = { 
+        # Use the add_to_cart functionality (Kroger API call)
+        headers = {"Authorization": f"Bearer {kroger_api_token}", "Content-Type": "application/json"}
+        cart_add_url = f"{KROGER_API_BASE}/cart/add" # Ensure KROGER_API_BASE is defined
+
+        payload = {
             "items": [
                 {
-                    "upc": product_upc, 
-                    "quantity": 1,  
-                    "modality": "DELIVERY",  
-                    "locationId": location_id
+                    "upc": product["upc"],
+                    "quantity": 1,  # Default quantity
+                    "modality": "DELIVERY",  # Default modality, or make it configurable
+                    "locationId": location_id # Use provided location_id
                 }
             ]
         }
 
-        response = requests.put(url, json=payload, headers=headers) 
-        if not (200 <= response.status_code < 300): 
+        print(f"DEBUG Main: Calling Kroger cart add API for UPC {product['upc']} at location {location_id}")
+        kroger_response = requests.put(cart_add_url, json=payload, headers=headers) # Assuming PUT
+
+        if not (200 <= kroger_response.status_code < 300):
+            error_detail_msg = f"Kroger API error when adding UPC {product['upc']} to cart."
             try:
-                error_detail = response.json() 
+                error_detail = kroger_response.json()
+                error_detail_msg = error_detail.get("error", error_detail_msg) if isinstance(error_detail, dict) else error_detail_msg
             except requests.exceptions.JSONDecodeError:
-                error_detail = {"error": "Non-JSON response from Kroger API", "content": response.text} 
-            raise HTTPException(status_code=response.status_code, detail=error_detail) 
+                error_detail_msg += f" Non-JSON response: {kroger_response.text}"
+            print(f"DEBUG Main: {error_detail_msg}")
+            return {"status": "error", "ingredient": request.ingredient, "reason": error_detail_msg, "kroger_status_code": kroger_response.status_code}
 
-        return {"status": "added", "ingredient": request.ingredient} 
 
-    except HTTPException: # Added to re-raise HTTPExceptions directly
+        print(f"DEBUG Main: Successfully added/updated UPC {product['upc']} in cart for location {location_id}.")
+        return {"status": "added", "ingredient": request.ingredient, "product_description": product.get("description")}
+
+    except HTTPException: # Re-raise HTTPExceptions from dependencies (like get_current_user_token)
         raise
-    except Exception as e: # Catch other unexpected errors
-        # Log the error e for debugging
-        print(f"Unexpected error in /process_ingredient: {e}") # Or use proper logging
-        raise HTTPException(status_code=500, detail=f"An unexpected server error occurred: {str(e)}")
+    except Exception as e:
+        print(f"DEBUG Main: Unexpected error in /process_ingredient for '{request.ingredient}': {e}") # Log the full error
+        raise HTTPException(status_code=500, detail=f"Unexpected server error processing ingredient '{request.ingredient}'.")
 
     # return {"message": "Temporarily simplified for debugging the 400 error."} # Removed placeholder
 
