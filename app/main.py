@@ -13,6 +13,7 @@ from product import router as product_router
 # from cart import router as cart_router
 # from cart import handle_add_to_cart  
 from typing import Optional # Add this import
+from typing import Optional # Add this import
 from pydantic import BaseModel
 import requests
 from llm import get_ingredients_from_ai
@@ -65,6 +66,8 @@ class AddToCartRequest(BaseModel): # This is defined twice, will clean up later 
 class VideoRequest(BaseModel):
     title: str
     link: str
+    description: str
+    transcript_url: Optional[str] = None # Changed from transcript: str
     description: str
     transcript_url: Optional[str] = None # Changed from transcript: str
 

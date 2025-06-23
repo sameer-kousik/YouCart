@@ -2,7 +2,7 @@
 // ####################################################################################
 // # IMPORTANT: REPLACE WITH YOUR ACTUAL KROGER CLIENT ID BEFORE RUNNING THE EXTENSION #
 // # You can get this from your Kroger Developer Portal account.                       #
-const KROGER_CLIENT_ID = "youcart-2432612430342445485a5a477273704a627733736250477a4632716b755065315637767a694b6766726662436642514c6b466e716e366b61376c34435477106669341475649"; // <--- REPLACE THIS!!!
+const KROGER_CLIENT_ID = "test_kroger_client_id_from_user_input"; // <--- REPLACE THIS!!!
 // ####################################################################################
 const BACKEND_URL = "http://localhost:8000"; // Or your actual backend URL
 
@@ -118,7 +118,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // If it were, you would fetch it from chrome.storage.local first.
         fetch(`${BACKEND_URL}/get_ingredients`, {
             method: 'POST',
-            headers: { 
+            headers: {
                 'Content-Type': 'application/json'
                 // No Authorization header needed if /get_ingredients is public
             },
@@ -127,7 +127,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then(response => {
             if (!response.ok) {
                 // Try to parse error detail from backend's JSON response
-                return response.json().then(err => { 
+                return response.json().then(err => {
                     // Prefer err.detail if available, otherwise construct a message
                     let errorMessage = "HTTP error! Status: " + response.status;
                     if (err && err.detail) {
@@ -154,7 +154,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             console.error("Background: Error getting ingredients from backend:", error);
             sendResponse({ success: false, error: error.message });
         });
-        
+
         return true; // Required for async sendResponse
     }
     else if (message.type === "ADD_INGREDIENTS_TO_KROGER_CART") {

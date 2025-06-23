@@ -2,11 +2,19 @@
 
 // Ensure currentIngredients is declared in a scope accessible by DOMContentLoaded if needed by its logic.
 // It was previously defined globally for the file.
+let currentIngredients = [];
+
+// In popup.js
+
+// Ensure currentIngredients is declared in a scope accessible by DOMContentLoaded if needed by its logic.
+// It was previously defined globally for the file.
 let currentIngredients = []; 
 
 document.addEventListener('DOMContentLoaded', function() {
     console.log("=======================================");
-    console.log("Popup DOMContentLoaded: Initializing UI and State Checks...");
+    console.log("=======================================");
+    console.log("Popup DOMContentLoaded: Initializing UI and State Checks UI and State Checks...");
+    console.log("=======================================");
     console.log("=======================================");
 
     const ingredientsListUl = document.getElementById('ingredientsList');
@@ -14,9 +22,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusMessages = document.getElementById('status-messages');
     
     // Clear previous dynamic content
+    if (ingredientsListUl) // Clear previous dynamic content
     if (ingredientsListUl) ingredientsListUl.innerHTML = '';
-    if (locationsListDiv) locationsListDiv.innerHTML = '';
-    if (statusMessages) statusMessages.textContent = 'Checking status...'; // More specific initial message
+    if (locationsListDiv) if (locationsListDiv) locationsListDiv.innerHTML = '';
+    if (statusMessages) if (statusMessages) statusMessages.textContent = 'Checking status...'; // More specific initial message
 
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
@@ -42,16 +51,19 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("---------------------------------------");
         console.log("Popup Storage Callback: Data retrieved from chrome.storage.local:", result);
         console.log("---------------------------------------");
+        console.log("---------------------------------------");
+        console.log("Popup Storage Callback: Data retrieved from chrome.storage.local:", result);
+        console.log("---------------------------------------");
 
         const now = Date.now();
         let isValidToken = false;
+
 
         if (result.kroger_access_token && result.kroger_token_obtained_at && result.kroger_token_expires_in) {
             const tokenObtainedAt = result.kroger_token_obtained_at;
             const expiresInSeconds = result.kroger_token_expires_in;
             const tokenAgeMs = now - tokenObtainedAt;
             const expiresInMs = expiresInSeconds * 1000;
-            
             console.log(`Popup Storage CB: Now = ${now}`);
             console.log(`Popup Storage CB: Token Obtained At = ${tokenObtainedAt}`);
             console.log(`Popup Storage CB: Expires In (seconds) = ${expiresInSeconds}`);
@@ -61,16 +73,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (tokenAgeMs < expiresInMs) {
                 isValidToken = true;
                 console.log("Popup Storage CB: Token IS VALID.");
+                console.log("Popup Storage CB: Token IS VALID.");
             } else {
+                isValidToken = false;
+                console.log("Popup Storage CB: Token HAS EXPIRED.");
+                // Optionally clear all stored Kroger data upon expiry
                 isValidToken = false;
                 console.log("Popup Storage CB: Token HAS EXPIRED.");
                 // Optionally clear all stored Kroger data upon expiry
                 // chrome.storage.local.remove(['kroger_access_token', 'kroger_refresh_token', 'kroger_token_expires_in', 'kroger_token_obtained_at', 'kroger_location_id']);
                 // console.log("Popup Storage CB: Expired token and related data cleared from storage.");
+                // console.log("Popup Storage CB: Expired token and related data cleared from storage.");
             }
-        } else {
-            console.log("Popup Storage CB: Token data incomplete or missing from storage.");
-            isValidToken = false;
         }
         
         console.log(`Popup Storage CB: Calculated isValidToken = ${isValidToken}`);
@@ -84,7 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log("Popup Storage CB: Path chosen: Location ID Present.");
                 if (statusMessages) statusMessages.textContent = 'Ready to analyze or add to cart.';
                 if (locationSection) locationSection.style.display = 'none';
-                
                 // Logic for showing youtube vs ingredients section
                 // currentIngredients is not persistent across popup closures unless stored in chrome.storage
                 // So, typically, ingredientsSection won't show on initial load unless we implement that.
@@ -100,6 +113,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (ingredientsSection) ingredientsSection.style.display = 'none';
                 }
             } else {
+                console.log("Popup Storage CB: Path chosen: Location ID NOT Present.");
+                if (statusMessages) statusMessages.textContent = 'Logged in. Please select your Kroger store.';
+                if (locationSection) locationSection.style.display = 'block';
+                if (youtubeSection) youtubeSection.style.display = 'none';
+                if (ingredientsSection) ingredientsSection.style.display = 'none';
                 console.log("Popup Storage CB: Path chosen: Location ID NOT Present.");
                 if (statusMessages) statusMessages.textContent = 'Logged in. Please select your Kroger store.';
                 if (locationSection) locationSection.style.display = 'block';
@@ -126,22 +144,31 @@ document.addEventListener('DOMContentLoaded', function() {
     // Event listeners for buttons (loginBtn, searchLocationsBtn, etc.)
     // These ensure the DOM element variables are defined locally within this scope
     // or are accessible if defined outside this specific block but within DOMContentLoaded.
-    
     const loginBtn = document.getElementById('loginBtn');
     if (loginBtn) {
         loginBtn.addEventListener('click', () => {
             if (statusMessages) statusMessages.textContent = 'Initiating login...';
+            if (statusMessages) statusMessages.textContent = 'Initiating login...';
             chrome.runtime.sendMessage({ type: "LOGIN_KROGER" }, (response) => {
                 if (chrome.runtime.lastError) {
                     if (statusMessages) statusMessages.textContent = `Error initiating login: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error initiating login: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
                     if (statusMessages) statusMessages.textContent = `Error initiating login: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error initiating login: ${response.error}`;
                 } else if (response && response.success) {
+                    if (statusMessages) statusMessages.textContent = "Login process started. Please complete in the new tab.";
                     if (statusMessages) statusMessages.textContent = "Login process started. Please complete in the new tab.";
                 }
             });
         });
     }
+
+    const searchLocationsBtn = document.getElementById('searchLocationsBtn');
+    const zipCodeInput = document.getElementById('zipCode');
+    // locationsListDiv is already defined above
+    // saveLocationBtn is already defined above
+    let selectedLocationId = null;
 
     const searchLocationsBtn = document.getElementById('searchLocationsBtn');
     const zipCodeInput = document.getElementById('zipCode');
@@ -158,8 +185,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             if (statusMessages) statusMessages.textContent = `Searching locations for ${zip}...`;
+            if (statusMessages) statusMessages.textContent = `Searching locations for ${zip}...`;
             searchLocationsBtn.disabled = true;
             zipCodeInput.disabled = true;
+            if (locationsListDiv) locationsListDiv.innerHTML = '';
+            if (saveLocationBtn) saveLocationBtn.style.display = 'none';
             if (locationsListDiv) locationsListDiv.innerHTML = ''; 
             if (saveLocationBtn) saveLocationBtn.style.display = 'none';
             selectedLocationId = null;
@@ -169,9 +199,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 zipCodeInput.disabled = false;
                 if (chrome.runtime.lastError) {
                     if (statusMessages) statusMessages.textContent = `Error searching locations: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error searching locations: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
                     if (statusMessages) statusMessages.textContent = `Error searching locations: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error searching locations: ${response.error}`;
                 } else if (response && response.success && response.locations) {
+                    if (statusMessages) statusMessages.textContent = response.locations.length > 0 ? `Found locations for ${zip}. Select one.` : `No locations found for ${zip}.`;
                     if (statusMessages) statusMessages.textContent = response.locations.length > 0 ? `Found locations for ${zip}. Select one.` : `No locations found for ${zip}.`;
                     renderLocations(response.locations);
                 }
@@ -180,6 +213,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderLocations(locations) {
+        if (!locationsListDiv) return;
+        locationsListDiv.innerHTML = '';
         if (!locationsListDiv) return;
         locationsListDiv.innerHTML = ''; 
         locations.forEach(location => {
@@ -195,6 +230,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 selectedLocationId = location.locationId;
                 if (saveLocationBtn) saveLocationBtn.style.display = 'block';
                 if (statusMessages) statusMessages.textContent = `Selected: ${location.name}`;
+                if (saveLocationBtn) saveLocationBtn.style.display = 'block';
+                if (statusMessages) statusMessages.textContent = `Selected: ${location.name}`;
             });
             locationsListDiv.appendChild(locDiv);
         });
@@ -204,8 +241,10 @@ document.addEventListener('DOMContentLoaded', function() {
         saveLocationBtn.addEventListener('click', () => {
             if (!selectedLocationId) {
                 if (statusMessages) statusMessages.textContent = "Please select a location first.";
+                if (statusMessages) statusMessages.textContent = "Please select a location first.";
                 return;
             }
+            if (statusMessages) statusMessages.textContent = "Saving location...";
             if (statusMessages) statusMessages.textContent = "Saving location...";
             saveLocationBtn.disabled = true;
 
@@ -213,9 +252,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 saveLocationBtn.disabled = false;
                 if (chrome.runtime.lastError) {
                     if (statusMessages) statusMessages.textContent = `Error saving location: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error saving location: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
                     if (statusMessages) statusMessages.textContent = `Error saving location: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error saving location: ${response.error}`;
                 } else if (response && response.success) {
+                    if (statusMessages) statusMessages.textContent = "Location saved successfully!";
+                    if (locationSection) locationSection.style.display = 'none';
+                    if (youtubeSection) youtubeSection.style.display = 'block';
                     if (statusMessages) statusMessages.textContent = "Location saved successfully!";
                     if (locationSection) locationSection.style.display = 'none';
                     if (youtubeSection) youtubeSection.style.display = 'block'; 
@@ -227,6 +271,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const analyzeVideoBtn = document.getElementById('analyzeVideoBtn');
     // ingredientsSection, ingredientsListUl, addToCartBtn are already defined above.
     // currentIngredients is defined at the top of the script.
+    // ingredientsSection, ingredientsListUl, addToCartBtn are already defined above.
+    // currentIngredients is defined at the top of the script.
 
     // Visibility of selectionControlsDiv will be handled by renderIngredients or if it's inside ingredients-section
     if (selectionControlsDiv) selectionControlsDiv.style.display = 'none';
@@ -235,12 +281,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (analyzeVideoBtn) {
         analyzeVideoBtn.addEventListener('click', () => {
             if (statusMessages) statusMessages.textContent = "Analyzing video...";
+            if (statusMessages) statusMessages.textContent = "Analyzing video...";
             analyzeVideoBtn.disabled = true;
+            if (ingredientsSection) ingredientsSection.style.display = 'none';
+            if (ingredientsListUl) ingredientsListUl.innerHTML = '';
             if (ingredientsSection) ingredientsSection.style.display = 'none';
             if (ingredientsListUl) ingredientsListUl.innerHTML = '';
 
             chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
                 if (!tabs[0] || !tabs[0].id) {
+                    if (statusMessages) statusMessages.textContent = "Cannot identify active tab.";
                     if (statusMessages) statusMessages.textContent = "Cannot identify active tab.";
                     analyzeVideoBtn.disabled = false;
                     return;
@@ -249,31 +299,39 @@ document.addEventListener('DOMContentLoaded', function() {
                     chrome.tabs.sendMessage(tabs[0].id, { type: "GET_YOUTUBE_VIDEO_DETAILS" }, (videoDetails) => {
                         if (chrome.runtime.lastError) {
                             if (statusMessages) statusMessages.textContent = `Error getting video details: ${chrome.runtime.lastError.message}`;
+                            if (statusMessages) statusMessages.textContent = `Error getting video details: ${chrome.runtime.lastError.message}`;
                             analyzeVideoBtn.disabled = false;
                             return;
                         }
                         if (videoDetails) {
                             console.log("Popup: Received video details from content script:", videoDetails);
                             if (statusMessages) statusMessages.textContent = "Video details received. Analyzing for ingredients...";
+                            if (statusMessages) statusMessages.textContent = "Video details received. Analyzing for ingredients...";
                             chrome.runtime.sendMessage({ type: "ANALYZE_VIDEO_CONTENT", videoDetails: videoDetails }, (analysisResponse) => {
                                 analyzeVideoBtn.disabled = false;
                                 if (chrome.runtime.lastError) {
                                     if (statusMessages) statusMessages.textContent = `Analysis error: ${chrome.runtime.lastError.message}`;
+                                    if (statusMessages) statusMessages.textContent = `Analysis error: ${chrome.runtime.lastError.message}`;
                                 } else if (analysisResponse && analysisResponse.error) {
+                                    if (statusMessages) statusMessages.textContent = `Analysis error: ${analysisResponse.error}`;
                                     if (statusMessages) statusMessages.textContent = `Analysis error: ${analysisResponse.error}`;
                                 } else if (analysisResponse && analysisResponse.success && analysisResponse.ingredients) {
                                     if (statusMessages) statusMessages.textContent = "Ingredients found!";
+                                    if (statusMessages) statusMessages.textContent = "Ingredients found!";
                                     renderIngredients(analysisResponse.ingredients);
                                 } else {
+                                    if (statusMessages) statusMessages.textContent = "No ingredients found or unexpected response from analysis.";
                                     if (statusMessages) statusMessages.textContent = "No ingredients found or unexpected response from analysis.";
                                 }
                             });
                         } else {
                             if (statusMessages) statusMessages.textContent = "Could not retrieve details from video page.";
+                            if (statusMessages) statusMessages.textContent = "Could not retrieve details from video page.";
                             analyzeVideoBtn.disabled = false;
                         }
                     });
                 } else {
+                    if (statusMessages) statusMessages.textContent = "Please navigate to a YouTube video page (youtube.com/watch?v=...).";
                     if (statusMessages) statusMessages.textContent = "Please navigate to a YouTube video page (youtube.com/watch?v=...).";
                     analyzeVideoBtn.disabled = false;
                 }
@@ -282,6 +340,10 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function renderIngredients(ingredients) {
+        if (!ingredientsListUl) return;
+        ingredientsListUl.innerHTML = '';
+        currentIngredients = []; // Reset before populating
+        const addToCartBtnElement = document.getElementById('addToCartBtn');
         // const ingredientsListUl = document.getElementById('ingredientsList'); // Already defined globally in DOMContentLoaded
         // const addToCartBtn = document.getElementById('addToCartBtn'); // Already defined globally in DOMContentLoaded
         
@@ -307,98 +369,36 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentIngredients.push(ingredientObj);
 
                 const li = document.createElement('li');
-                
-                const checkbox = document.createElement('input');
-                checkbox.type = 'checkbox';
-                checkbox.id = ingredientObj.id;
-                checkbox.value = ingredientName;
-                checkbox.checked = ingredientObj.checked;
-                checkbox.dataset.ingredientName = ingredientName; // Store name for easy access
-
-                checkbox.addEventListener('change', (event) => {
-                    const changedIngredient = currentIngredients.find(item => item.id === event.target.id);
-                    if (changedIngredient) {
-                        changedIngredient.checked = event.target.checked;
-                        console.log("Updated currentIngredients:", currentIngredients); // For debugging
-                    }
-                });
-
-                const label = document.createElement('label');
-                label.htmlFor = ingredientObj.id;
-                label.textContent = ingredientName;
-
-                li.appendChild(checkbox);
-                li.appendChild(label);
+                li.textContent = typeof ingredient === 'string' ? ingredient : ingredient.name;
                 ingredientsListUl.appendChild(li);
+                currentIngredients.push(ingredient);
             });
-            
-            addToCartBtn.textContent = "Add Selected to Cart"; // Update button text
-            addToCartBtn.style.display = 'block';
+            if (addToCartBtnElement) addToCartBtnElement.style.display = 'block';
         } else {
             const li = document.createElement('li');
             li.textContent = "No ingredients listed.";
             ingredientsListUl.appendChild(li);
-            addToCartBtn.style.display = 'none'; // Hide cart button
+            if (addToCartBtnElement) addToCartBtnElement.style.display = 'none';
         }
-        // Ensure ingredientsSection itself is visible if it was hidden
         if (ingredientsSection) ingredientsSection.style.display = 'block';
-        
-        // Show/hide selection controls based on ingredients presence
-        if (ingredients && ingredients.length > 0) {
-            if (selectionControlsDiv) selectionControlsDiv.style.display = 'block';
-        } else {
-            if (selectionControlsDiv) selectionControlsDiv.style.display = 'none';
-        }
-    }
-
-    if (selectAllBtn) {
-        selectAllBtn.addEventListener('click', () => {
-            console.log("Select All clicked");
-            const checkboxes = ingredientsListUl.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = true;
-            });
-            // Update the currentIngredients array
-            currentIngredients.forEach(ingredient => ingredient.checked = true);
-            console.log("Updated currentIngredients (all selected):", currentIngredients);
-        });
-    }
-
-    if (deselectAllBtn) {
-        deselectAllBtn.addEventListener('click', () => {
-            console.log("Deselect All clicked");
-            const checkboxes = ingredientsListUl.querySelectorAll('input[type="checkbox"]');
-            checkboxes.forEach(checkbox => {
-                checkbox.checked = false;
-            });
-            // Update the currentIngredients array
-            currentIngredients.forEach(ingredient => ingredient.checked = false);
-            console.log("Updated currentIngredients (all deselected):", currentIngredients);
-        });
     }
 
     if (addToCartBtn) {
         addToCartBtn.addEventListener('click', () => {
-            // Filter currentIngredients to get only those that are checked
-            const selectedIngredients = currentIngredients
-                .filter(ingredient => ingredient.checked)
-                .map(ingredient => ingredient.name); // Send only the names
-
-            if (!selectedIngredients || selectedIngredients.length === 0) {
-                document.getElementById('status-messages').textContent = "No ingredients selected to add.";
+            if (!currentIngredients || currentIngredients.length === 0) {
+                if (statusMessages) statusMessages.textContent = "No ingredients to add.";
                 return;
             }
-            
-            document.getElementById('status-messages').textContent = "Adding selected ingredients to cart... This may take a moment.";
-            addToCartBtn.disabled = true; // Disable button during operation
 
-            // Send ONLY selected ingredients to background script for processing
-            chrome.runtime.sendMessage({ type: "ADD_INGREDIENTS_TO_KROGER_CART", ingredients: selectedIngredients }, (response) => {
-                addToCartBtn.disabled = false; // Re-enable button
+            if (statusMessages) statusMessages.textContent = "Adding ingredients to cart... This may take a moment.";
+            addToCartBtn.disabled = true;
+
+            chrome.runtime.sendMessage({ type: "ADD_INGREDIENTS_TO_KROGER_CART", ingredients: currentIngredients }, (response) => {
+                addToCartBtn.disabled = false;
                 if (chrome.runtime.lastError) {
-                    document.getElementById('status-messages').textContent = `Error: ${chrome.runtime.lastError.message}`;
+                    if (statusMessages) statusMessages.textContent = `Error adding to cart: ${chrome.runtime.lastError.message}`;
                 } else if (response && response.error) {
-                    document.getElementById('status-messages').textContent = `Error adding to cart: ${response.error}`;
+                    if (statusMessages) statusMessages.textContent = `Error adding to cart: ${response.error}`;
                 } else if (response && response.success) {
                     let successMessage = "Successfully processed selected items for cart!";
                     if (response.summary) {
@@ -407,17 +407,15 @@ document.addEventListener('DOMContentLoaded', function() {
                              successMessage += ` Errors: ${response.summary.errors}.`;
                         }
                     }
-                    document.getElementById('status-messages').textContent = successMessage;
-                    // Optionally, clear the ingredients list or currentIngredients after successful addition
-                    // renderIngredients([]); // This would clear the list and currentIngredients
+                    if (statusMessages) statusMessages.textContent = successMessage;
                 } else {
-                     document.getElementById('status-messages').textContent = "Unknown response after adding to cart.";
+                     if (statusMessages) statusMessages.textContent = "Unknown response after adding to cart.";
                 }
             });
         });
     }
     // Ensure all DOM element variables are defined if used in listeners below
-    // For example, loginBtn, searchLocationsBtn, zipCodeInput, locationsListDiv, 
+    // For example, loginBtn, searchLocationsBtn, zipCodeInput, locationsListDiv,
     // saveLocationBtn, analyzeVideoBtn, ingredientsListUl, addToCartBtn
     // are already defined at the top of this DOMContentLoaded listener.
 });
@@ -426,26 +424,26 @@ document.addEventListener('DOMContentLoaded', function() {
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // These DOM element gets might fail if popup is not open when message is received.
     // However, these messages (AUTH_SUCCESS, AUTH_FAILURE) are primarily to update an open popup.
-    const statusMessages = document.getElementById('status-messages'); 
+    const statusMessages = document.getElementById('status-messages');
     const authSection = document.getElementById('auth-section');
     const locationSection = document.getElementById('location-section');
     const youtubeSection = document.getElementById('youtube-section');
-    const ingredientsSection = document.getElementById('ingredients-section'); 
+    const ingredientsSection = document.getElementById('ingredients-section');
 
     console.log("Popup: Received message from background:", message);
     if (message.type === "AUTH_SUCCESS") {
         if (statusMessages) statusMessages.textContent = 'Login successful! Please select your store.';
         if (authSection) authSection.style.display = 'none';
-        if (locationSection) locationSection.style.display = 'block'; 
+        if (locationSection) locationSection.style.display = 'block';
         if (youtubeSection) youtubeSection.style.display = 'none';
-        if (ingredientsSection) ingredientsSection.style.display = 'none'; 
+        if (ingredientsSection) ingredientsSection.style.display = 'none';
         console.log("Popup: Auth success, showing location section.");
     } else if (message.type === "AUTH_FAILURE") {
         if (statusMessages) statusMessages.textContent = `Login failed: ${message.error}`;
-        if (authSection) authSection.style.display = 'block'; 
+        if (authSection) authSection.style.display = 'block';
         if (locationSection) locationSection.style.display = 'none';
         if (youtubeSection) youtubeSection.style.display = 'none';
-        if (ingredientsSection) ingredientsSection.style.display = 'none'; 
+        if (ingredientsSection) ingredientsSection.style.display = 'none';
         console.log("Popup: Auth failure.");
     }
 });

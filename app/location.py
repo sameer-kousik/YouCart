@@ -1,14 +1,7 @@
 import requests
 from fastapi import HTTPException, Request, APIRouter, Depends
 from pydantic import BaseModel
-from auth import get_current_user_token 
-import json # Added
-import os # Added
-from typing import Dict # Added
-
-# Define the path for the JSON file.
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-LOCATION_MAP_FILE = os.path.join(BASE_DIR, "kroger_location_map.json")
+from auth import get_current_user_token # Changed from .auth
 
 router = APIRouter()
 
