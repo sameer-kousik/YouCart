@@ -22,10 +22,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 return;
             }
             console.log("Kroger auth tab opened:", tab);
-            sendResponse({ success: true });
+            sendResponse({ success: true }); 
         });
         return true; // Indicates you wish to send a response asynchronously
-    }
+    } 
     else if (message.type === "KROGER_CODE_RECEIVED") {
         console.log("Background: KROGER_CODE_RECEIVED", message);
         const { code, redirectUri } = message;
@@ -54,7 +54,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 console.log("Background: Tokens stored successfully.");
                 // Notify popup of success
                 chrome.runtime.sendMessage({ type: "AUTH_SUCCESS" });
-
+                
                 // Optionally, close the oauth_callback.html tab
                 if (sender.tab && sender.tab.id) {
                     chrome.tabs.remove(sender.tab.id);
@@ -103,78 +103,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         console.log("Background: ANALYZE_VIDEO_CONTENT received", message.videoDetails);
         const { title, description, transcriptUrl, videoUrl } = message.videoDetails;
 
-        // Step 1: Fetch the actual transcript XML if URL is provided
-        let transcriptPromise;
-        if (transcriptUrl && transcriptUrl.startsWith("http")) {
-            transcriptPromise = fetch(transcriptUrl)
-                .then(response => {
-                    if (!response.ok) throw new Error(`Failed to fetch transcript XML: ${response.statusText}`);
-                    return response.text();
-                })
-                .then(xmlText => {
-                    // Basic XML parsing to extract text content.
-                    // A more robust XML parser might be better for complex cases.
-                    let transcriptContent = "";
-                    try {
-                        const parser = new DOMParser();
-                        const xmlDoc = parser.parseFromString(xmlText, "text/xml");
-                        const textNodes = xmlDoc.getElementsByTagName('text');
-                        for (let i = 0; i < textNodes.length; i++) {
-                            transcriptContent += textNodes[i].textContent + " ";
-                        }
-                    } catch (e) {
-                        console.error("Error parsing transcript XML:", e);
-                        transcriptContent = "Error parsing transcript XML.";
+        // Payload for the backend, now directly using transcriptUrl
+        const analysisPayload = {
+            title: title,
+            link: videoUrl, // Ensure this is the correct YouTube video URL
+            description: description,
+            transcript_url: transcriptUrl // Pass the URL directly
+        };
+
+        console.log("Background: Sending to backend /get_ingredients with payload:", analysisPayload);
+
+        // Call backend's /get_ingredients
+        // No need to fetch kroger_access_token here as /get_ingredients is not token-protected currently on the backend.
+        // If it were, you would fetch it from chrome.storage.local first.
+        fetch(`${BACKEND_URL}/get_ingredients`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json'
+                // No Authorization header needed if /get_ingredients is public
+            },
+            body: JSON.stringify(analysisPayload)
+        })
+        .then(response => {
+            if (!response.ok) {
+                // Try to parse error detail from backend's JSON response
+                return response.json().then(err => { 
+                    // Prefer err.detail if available, otherwise construct a message
+                    let errorMessage = "HTTP error! Status: " + response.status;
+                    if (err && err.detail) {
+                        errorMessage = typeof err.detail === 'string' ? err.detail : JSON.stringify(err.detail);
                     }
-                    return transcriptContent.trim();
-                })
-                .catch(error => {
-                    console.error("Background: Error fetching transcript:", error);
-                    return "Transcript fetch failed."; // Provide fallback
+                    throw new Error(errorMessage);
+                }).catch(() => {
+                    // Fallback if response.json() itself fails or err.detail is not good
+                    throw new Error(`HTTP error! Status: ${response.status} - ${response.statusText}`);
                 });
-        } else {
-            transcriptPromise = Promise.resolve(transcriptUrl); // Use the placeholder if not a URL
-        }
-
-        transcriptPromise.then(finalTranscript => {
-            const analysisPayload = {
-                title: title,
-                link: videoUrl, // Use videoUrl from content script
-                description: description,
-                transcript: finalTranscript
-            };
-
-            console.log("Background: Sending to backend /get_ingredients:", analysisPayload);
-
-            // Step 2: Call backend's /get_ingredients
-            chrome.storage.local.get(['kroger_access_token'], function(result) { // Get token if needed by backend, though current backend /get_ingredients does not require it
-                // const accessToken = result.kroger_access_token; // Not used for this specific backend endpoint currently
-
-                fetch(`${BACKEND_URL}/get_ingredients`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(analysisPayload)
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(err => { throw new Error(err.detail || `HTTP error! Status: ${response.status}`); });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log("Background: Ingredients from backend:", data);
-                    if (data.ingredients) {
-                        sendResponse({ success: true, ingredients: data.ingredients });
-                    } else {
-                        throw new Error("Ingredients not found in backend response.");
-                    }
-                })
-                .catch(error => {
-                    console.error("Background: Error getting ingredients from backend:", error);
-                    sendResponse({ success: false, error: error.message });
-                });
-            });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Background: Ingredients from backend:", data);
+            if (data.ingredients) {
+                sendResponse({ success: true, ingredients: data.ingredients });
+            } else {
+                // This case implies the backend responded with 200 OK but 'ingredients' field was missing.
+                throw new Error("Ingredients not found in backend response despite success status.");
+            }
+        })
+        .catch(error => {
+            console.error("Background: Error getting ingredients from backend:", error);
+            sendResponse({ success: false, error: error.message });
         });
+        
         return true; // Required for async sendResponse
     }
     else if (message.type === "ADD_INGREDIENTS_TO_KROGER_CART") {
@@ -193,7 +173,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
 
             const accessToken = storageData.kroger_access_token;
-            // Note: kroger_location_id is available in storageData,
+            // Note: kroger_location_id is available in storageData, 
             // but /process_ingredient backend endpoint uses token_to_location_id_map with the Bearer token.
 
             let addedCount = 0;
@@ -211,7 +191,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                             'Authorization': `Bearer ${accessToken}`,
                             'Content-Type': 'application/json',
                         },
-                        body: JSON.stringify({ ingredient: ingredientName })
+                        body: JSON.stringify({ ingredient: ingredientName }) 
                     });
 
                     if (!response.ok) {
@@ -227,7 +207,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         } else {
                             errorCount++;
                         }
-                        continue;
+                        continue; 
                     }
 
                     const result = await response.json();
@@ -239,7 +219,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                         lastSkippedReason = result.reason || "skipped by backend";
                     } else {
                         console.warn("Unexpected status from /process_ingredient:", result);
-                        errorCount++;
+                        errorCount++; 
                     }
 
                 } catch (error) {
@@ -249,14 +229,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
 
             console.log(`Finished processing ingredients. Added: ${addedCount}, Skipped: ${skippedCount}, Errors: ${errorCount}`);
-            sendResponse({
-                success: true,
-                summary: {
-                    added: addedCount,
-                    skipped: skippedCount,
+            sendResponse({ 
+                success: true, 
+                summary: { 
+                    added: addedCount, 
+                    skipped: skippedCount, 
                     errors: errorCount,
                     skippedReason: lastSkippedReason
-                }
+                } 
             });
         });
         return true; // Required for async sendResponse

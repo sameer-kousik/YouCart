@@ -22,7 +22,11 @@
     <div id="ingredients-section" style="display:none;">
         <h2>Ingredients:</h2>
         <ul id="ingredientsList"></ul>
-        <button id="addToCartBtn">Add All to Cart</button>
+        <div id="selection-controls" style="margin-top: 5px; margin-bottom: 5px;">
+            <button id="selectAllBtn" style="margin-right: 5px;">Select All</button>
+            <button id="deselectAllBtn">Deselect All</button>
+        </div>
+        <button id="addToCartBtn">Add Selected to Cart</button> <!-- Text already updated in previous task -->
     </div>
     <div id="status-messages"></div>
     <script src="popup.js"></script>

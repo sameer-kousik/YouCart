@@ -1,85 +1,76 @@
 import os
 import google.generativeai as genai
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException # Keep these if your llm.py still has its own app
+from pydantic import BaseModel # Keep if VideoRequest is still defined here for the local app
 from dotenv import load_dotenv
-from pytubefix import YouTube
+from pytubefix import YouTube # This seems unused in get_ingredients_from_ai now
+import requests
+import xml.etree.ElementTree as ET
+from typing import Optional
 
-# Load environment variables
+# ... (your existing key loading and model initialization) ...
 load_dotenv()
 
 # Securely load API key
 key = os.getenv('GENAI_API_KEY')
 genai.configure(api_key=key)
+model = genai.GenerativeModel('gemini-1.5-flash-latest') # Or your chosen model
 
-# Initialize the model
-model = genai.GenerativeModel('gemini-2.5-pro-preview-06-05')
+def get_ingredients_from_ai(title: str, link: str, description: str, transcript_url: Optional[str]) -> list:
+    actual_transcript_text = "Transcript not available or not provided." # Default
 
-# Initialize FastAPI app
-app = FastAPI()
+    if transcript_url:
+        print(f"LLM: Received transcript_url: {transcript_url}")
+        try:
+            response = requests.get(transcript_url, timeout=15) # Increased timeout
+            print(f"LLM: Transcript fetch HTTP status: {response.status_code}") # Log status
+            response.raise_for_status()
 
-# Define request body schema
-class VideoRequest(BaseModel):
-    title: str
-    link: str
+            xml_content = response.text
+            # CRUCIAL LOG: Print the beginning of the fetched content
+            print(f"LLM: Fetched transcript content (first 500 chars): {xml_content[:500]}")
 
-def get_youtube_description(video_url):
-    try:
-        yt = YouTube(video_url)
-        description = yt.description
-        return description
-    except Exception as e:
-        print("An unexpected error occurred while fetching description/title: {}".format(e))
-        return None
+            if not xml_content.strip():
+                print("LLM: Fetched transcript content is empty.")
+                actual_transcript_text = "Transcript content was empty."
+            else:
+                try:
+                    root = ET.fromstring(xml_content)
+                    transcript_parts = []
+                    for text_element in root.findall('.//text'):
+                        if text_element.text:
+                            transcript_parts.append(text_element.text.strip())
 
-def get_ingredients_from_ai(title: str, link: str, description: str, transcript: str) -> list:
-    #description_from_yt = get_youtube_description(link) # No longer fetching description here, it's passed in.
+                    if transcript_parts:
+                        actual_transcript_text = " ".join(transcript_parts)
+                        print(f"LLM: Successfully fetched and parsed transcript. Length: {len(actual_transcript_text)}")
+                    else:
+                        print("LLM: XML parsed, but no <text> elements found or they were empty.")
+                        actual_transcript_text = "Transcript XML parsed, but no usable content found."
+                except ET.ParseError as e:
+                    print(f"LLM: Error parsing transcript XML: {e}")
+                    print(f"LLM: XML content that failed to parse (first 500 chars): {xml_content[:500]}")
+                    actual_transcript_text = f"Error parsing transcript XML: {e}"
 
-    print(f"Analyzing with title: {title}, link: {link}")
-    #print(f"Using description (first 200 chars): {description if description else 'N/A'}...")
-    print(description)
-    #print(f"Using transcript (first 200 chars): {transcript[:200] if transcript else 'N/A'}...")
-    #description = description_from_yt
-    #print("New Description:", description)
-    # Placeholder for actual LLM call and ingredient extraction logic.
-    # The prompt would need to be updated to effectively use description and transcript.
-    #Example of how the prompt *could* be updated:
+        except requests.exceptions.RequestException as e:
+            print(f"LLM: Error fetching transcript from URL: {e}")
+            actual_transcript_text = f"Error fetching transcript: {e}"
+    else:
+        print("LLM: No transcript_url provided.")
+
     prompt = (
-        "You are an expert culinary assistant. Your task is to analyze the following YouTube video details "
-        "and extract every single ingredient mentioned. Prioritize spoken ingredients from the transcript, "
-        "then consider the video description, and finally the title."
-        " Present the ingredients as a plain, unnumbered list, with each ingredient on a new line. "
-        "Do not include quantities, instructions, or any other additional text, notes, or explanations. "
-        "Only list the ingredients themselves.\n\n"
-        f"Video Title: {title}\n"
-        f"Video Link: {link}\n"
-        f"Video Description:\n{description}\n\n"
-        #f"Video Transcript:\n{transcript}"
+        "You are an expert culinary assistant. Your task is to analyze the following YouTube video and extract every single ingredient mentioned in the video description or spoken in the video itself."
+        " Present the ingredients as a plain, unnumbered list, with each ingredient on a new line. Do not include quantities, instructions, or any other additional text, notes, or explanations. Only list the ingredients themselves."
+        f"Here is the link:\n{link} for the video."
+        f"Here is the youtube video description:\n{description}."
+        f"Here is the transcript of the video:\n{actual_transcript_text}."
     )
     try:
-        #Generate content using the AI model
-        response = model.generate_content(prompt)
-        ingredients = response.text.split("\n")
+        llm_response = model.generate_content(prompt)
+        ingredients = llm_response.text.split("\n")
+        ingredients = [ing.strip() for ing in ingredients if ing.strip()]
+        print(f"LLM: Ingredients extracted by AI: {ingredients}")
         return ingredients
     except Exception as e:
-        raise RuntimeError(f"Error generating ingredients: {str(e)}")
-
-    # For the purpose of this subtask, returning mock ingredients as per example.
-    # mock_ingredients = [
-    #     f"Ingredient from title: {title}",
-    #     f"Ingredient from link: {link}",
-    #     f"Ingredient based on description (first 20 chars): {description[:20] if description else 'N/A'}",
-    #     f"Ingredient based on transcript (first 20 chars): {transcript[:20] if transcript else 'N/A'}"
-    # ]
-    # return ingredients
-
-@app.post("/get_ingredients") # This is part of llm.py's own FastAPI app, separate from main.py
-async def get_ingredients(request: VideoRequest): # This endpoint in llm.py is not the one being modified by the subtask for main.py
-    try:
-        # Call the function to get ingredients
-        ingredients = get_ingredients_from_ai(request.title, request.link)
-        return {"ingredients": ingredients}
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail="An unexpected error occurred.")
+        print(f"LLM: Error generating ingredients from AI: {str(e)}")
+        return [f"Error generating ingredients: {str(e)}"]
