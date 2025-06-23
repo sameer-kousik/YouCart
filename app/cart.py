@@ -1,8 +1,8 @@
 import requests
 from fastapi import HTTPException, APIRouter
 from pydantic import BaseModel
-from .auth import user_tokens
-from .location import user_locations
+from auth import user_tokens # Changed from .auth
+from location import user_locations # Changed from .location (Note: user_locations is no longer in location.py)
 
 KROGER_API_BASE = "https://api.kroger.com/v1"
 
