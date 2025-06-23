@@ -24,9 +24,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectionControlsDiv = document.getElementById('selection-controls'); 
     const currentLocationDisplayDiv = document.getElementById('current-location-display');
     const selectedLocationNameSpan = document.getElementById('selectedLocationName');
-    const cartResultsSection = document.getElementById('cart-results-section'); // New
-    const addedItemsListUl = document.getElementById('addedItemsList'); // New
-    const skippedItemsListUl = document.getElementById('skippedItemsList'); // New
+    const cartResultsSection = document.getElementById('cart-results-section');
+    const addedItemsListUl = document.getElementById('addedItemsList');
+    const skippedItemsListUl = document.getElementById('skippedItemsList');
+    const goToCartBtn = document.getElementById('goToCartBtn'); // New button
 
 
     // Initial UI State Function
@@ -55,9 +56,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if (addToCartBtn) addToCartBtn.style.display = 'none';
         if (selectionControlsDiv) selectionControlsDiv.style.display = 'none';
         if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
-        if (cartResultsSection) cartResultsSection.style.display = 'none'; // Hide results initially
+        if (cartResultsSection) cartResultsSection.style.display = 'none';
         if (addedItemsListUl) addedItemsListUl.innerHTML = '';
         if (skippedItemsListUl) skippedItemsListUl.innerHTML = '';
+        if (goToCartBtn) goToCartBtn.style.display = 'none'; // Hide Go to Cart button initially
     }
 
     setInitialUIState(); // Call the function to set initial states
@@ -459,9 +461,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 statusMessages.className = 'status-info';
             }
             addToCartBtn.disabled = true; 
-            if (cartResultsSection) cartResultsSection.style.display = 'none'; // Hide previous results
+            if (cartResultsSection) cartResultsSection.style.display = 'none';
             if (addedItemsListUl) addedItemsListUl.innerHTML = '';
             if (skippedItemsListUl) skippedItemsListUl.innerHTML = '';
+            if (goToCartBtn) goToCartBtn.style.display = 'none'; // Ensure it's hidden before new results
 
 
             chrome.runtime.sendMessage({ 
@@ -483,50 +486,63 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else if (response && response.success) {
                     let msgText = "Cart operation complete.";
                     if (response.summary) {
-                        msgText = `Added ${response.summary.added_items.length} items, ${response.summary.skipped_items.length} skipped.`;
+                        msgText = `Added ${response.summary.added_items.length} items, ${response.summary.skipped_items.length} skipped. See details below.`;
                         renderCartResults(response.summary.added_items, response.summary.skipped_items);
                         if (cartResultsSection) cartResultsSection.style.display = 'block';
+                        if (goToCartBtn) goToCartBtn.style.display = 'block'; // Show Go to Cart button
+                    } else {
+                        // Handle cases where summary might be missing, though ideally it's always there on success
+                        msgText = "Cart operation processed. Check results below.";
+                        if (cartResultsSection) cartResultsSection.style.display = 'block'; // Still show section for empty lists
+                        if (goToCartBtn) goToCartBtn.style.display = 'block';
                     }
                     if (statusMessages) {
                         statusMessages.textContent = msgText;
                         statusMessages.className = 'status-success';
                     }
-                } else {
+                } else { // Handles response.error or other issues
                      if (statusMessages) {
-                        statusMessages.textContent = "Unknown response after adding to cart.";
+                        statusMessages.textContent = "Unknown response or error after adding to cart.";
                         statusMessages.className = 'status-error';
                      }
+                     // Optionally show cart results section with error message if needed
+                     // renderCartResults([], []); // Clear lists or show error in lists
+                     // if (cartResultsSection) cartResultsSection.style.display = 'block';
                 }
             });
         });
     }
 
-    // Render Cart Results
+    // Render Cart Results - Ensures item names are displayed clearly.
     function renderCartResults(addedItems, skippedItems) {
         if (!addedItemsListUl || !skippedItemsListUl) return;
-        addedItemsListUl.innerHTML = '';
-        skippedItemsListUl.innerHTML = '';
+        addedItemsListUl.innerHTML = ''; // Clear previous results
+        skippedItemsListUl.innerHTML = ''; // Clear previous results
 
         if (addedItems && addedItems.length > 0) {
             addedItems.forEach(item => {
                 const li = document.createElement('li');
-                li.textContent = typeof item === 'string' ? item : item.name; // Assuming item might be object
+                // Ensure 'item.name' if item is an object, or item itself if string
+                const itemName = (typeof item === 'object' && item !== null && item.name) ? item.name : item;
+                li.textContent = itemName;
                 li.className = 'added-item';
                 addedItemsListUl.appendChild(li);
             });
         } else {
             const li = document.createElement('li');
-            li.textContent = "No items were successfully added.";
+            li.textContent = "No items were added to the cart.";
+            li.style.fontStyle = "italic";
             addedItemsListUl.appendChild(li);
         }
 
         if (skippedItems && skippedItems.length > 0) {
             skippedItems.forEach(item => {
                 const li = document.createElement('li');
-                let skippedText = typeof item === 'string' ? item : item.name; // Assuming item might be object
-                let reason = item.reason || 'Not found or error';
+                // Ensure 'item.name' if item is an object
+                const itemName = (typeof item === 'object' && item !== null && item.name) ? item.name : item;
+                let reason = (typeof item === 'object' && item !== null && item.reason) ? item.reason : 'Not found or error';
 
-                li.textContent = `${skippedText}`;
+                li.textContent = `${itemName}`;
                 li.className = 'skipped-item';
 
                 const reasonSpan = document.createElement('span');
@@ -538,10 +554,17 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             const li = document.createElement('li');
             li.textContent = "No items were skipped.";
+            li.style.fontStyle = "italic";
             skippedItemsListUl.appendChild(li);
         }
     }
 
+    // Go to Cart Button Listener
+    if (goToCartBtn) {
+        goToCartBtn.addEventListener('click', () => {
+            chrome.tabs.create({ url: 'https://www.kroger.com/cart' });
+        });
+    }
 
 });
 

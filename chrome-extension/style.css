@@ -191,6 +191,14 @@ select#locationsDropdown {
     font-size: 0.9em;
 }
 
+#goToCartBtn {
+    background-color: #2ecc71; /* Green color for go to cart */
+    font-weight: bold;
+}
+#goToCartBtn:hover {
+    background-color: #27ae60; /* Darker green on hover */
+}
+
 
 /* Hide sections by default, JS will show them */
 #location-section,
@@ -198,6 +206,7 @@ select#locationsDropdown {
 #ingredients-section,
 #current-location-display,
 #selection-controls,
-#addToCartBtn {
+#addToCartBtn,
+#cart-results-section { /* Ensure cart-results-section is hidden by default if not already explicitly set by JS early on */
     display: none;
 }
