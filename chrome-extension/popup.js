@@ -472,42 +472,55 @@ document.addEventListener('DOMContentLoaded', function() {
                 ingredients: selectedIngredients,
                 locationId: currentSelectedLocationId
             }, (response) => {
-                addToCartBtn.disabled = false; 
+                addToCartBtn.disabled = false;
+                console.log("Add to Cart Response:", response); // Log the entire response
+
                 if (chrome.runtime.lastError) {
                     if (statusMessages) {
                         statusMessages.textContent = `Cart Error: ${chrome.runtime.lastError.message}`;
                         statusMessages.className = 'status-error';
                     }
+                    console.error("Add to Cart - Chrome Last Error:", chrome.runtime.lastError.message);
                 } else if (response && response.error) {
                     if (statusMessages) {
                         statusMessages.textContent = `Cart Error: ${response.error}`;
                         statusMessages.className = 'status-error';
                     }
+                    console.error("Add to Cart - Response Error:", response.error);
                 } else if (response && response.success) {
+                    console.log("Add to Cart - Success. Summary:", response.summary);
                     let msgText = "Cart operation complete.";
-                    if (response.summary) {
-                        msgText = `Added ${response.summary.added_items.length} items, ${response.summary.skipped_items.length} skipped. See details below.`;
-                        renderCartResults(response.summary.added_items, response.summary.skipped_items);
-                        if (cartResultsSection) cartResultsSection.style.display = 'block';
-                        if (goToCartBtn) goToCartBtn.style.display = 'block'; // Show Go to Cart button
+
+                    // Ensure summary object exists and has the expected arrays
+                    const added = (response.summary && Array.isArray(response.summary.added_items)) ? response.summary.added_items : [];
+                    const skipped = (response.summary && Array.isArray(response.summary.skipped_items)) ? response.summary.skipped_items : [];
+
+                    msgText = `Added ${added.length} items, ${skipped.length} skipped. See details below.`;
+                    renderCartResults(added, skipped); // Pass potentially empty arrays
+
+                    if (cartResultsSection) {
+                        cartResultsSection.style.display = 'block';
+                        console.log("Cart results section displayed.");
                     } else {
-                        // Handle cases where summary might be missing, though ideally it's always there on success
-                        msgText = "Cart operation processed. Check results below.";
-                        if (cartResultsSection) cartResultsSection.style.display = 'block'; // Still show section for empty lists
-                        if (goToCartBtn) goToCartBtn.style.display = 'block';
+                        console.error("cartResultsSection not found!");
                     }
+                    if (goToCartBtn) {
+                        goToCartBtn.style.display = 'block';
+                        console.log("Go to Cart button displayed.");
+                    } else {
+                        console.error("goToCartBtn not found!");
+                    }
+
                     if (statusMessages) {
                         statusMessages.textContent = msgText;
                         statusMessages.className = 'status-success';
                     }
-                } else { // Handles response.error or other issues
-                     if (statusMessages) {
-                        statusMessages.textContent = "Unknown response or error after adding to cart.";
+                } else {
+                    if (statusMessages) {
+                        statusMessages.textContent = "Unknown response or error after adding to cart. Check console.";
                         statusMessages.className = 'status-error';
-                     }
-                     // Optionally show cart results section with error message if needed
-                     // renderCartResults([], []); // Clear lists or show error in lists
-                     // if (cartResultsSection) cartResultsSection.style.display = 'block';
+                    }
+                    console.error("Add to Cart - Unknown response structure:", response);
                 }
             });
         });
@@ -515,7 +528,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Render Cart Results - Ensures item names are displayed clearly.
     function renderCartResults(addedItems, skippedItems) {
-        if (!addedItemsListUl || !skippedItemsListUl) return;
+        console.log("renderCartResults received - Added:", addedItems, "Skipped:", skippedItems);
+
+        if (!addedItemsListUl || !skippedItemsListUl) {
+            console.error("renderCartResults: addedItemsListUl or skippedItemsListUl not found!");
+            return;
+        }
         addedItemsListUl.innerHTML = ''; // Clear previous results
         skippedItemsListUl.innerHTML = ''; // Clear previous results
 
