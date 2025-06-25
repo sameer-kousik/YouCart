@@ -177,9 +177,7 @@ select#locationsDropdown {
     border-bottom: none;
 }
 
-#cart-results-section .added-item {
-    color: #27ae60; /* Green for added items */
-}
+/* Styling for .added-item removed as it's no longer used. */
 
 #cart-results-section .skipped-item {
     color: #e74c3c; /* Red for skipped items */

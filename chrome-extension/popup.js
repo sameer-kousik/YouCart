@@ -25,18 +25,17 @@ document.addEventListener('DOMContentLoaded', function() {
     const currentLocationDisplayDiv = document.getElementById('current-location-display');
     const selectedLocationNameSpan = document.getElementById('selectedLocationName');
     const cartResultsSection = document.getElementById('cart-results-section');
-    const addedItemsListUl = document.getElementById('addedItemsList');
+    // removed addedItemsListUl reference
     const skippedItemsListUl = document.getElementById('skippedItemsList');
-    const goToCartBtn = document.getElementById('goToCartBtn'); // New button
+    const goToCartBtn = document.getElementById('goToCartBtn');
 
 
     // Initial UI State Function
     function setInitialUIState() {
         if (ingredientsListUl) ingredientsListUl.innerHTML = '';
         if (locationsDropdown) {
-            locationsDropdown.innerHTML = ''; // Clear previous options
-            locationsDropdown.style.display = 'none'; // Hide dropdown initially
-            // Add a default, non-selectable option
+            locationsDropdown.innerHTML = '';
+            locationsDropdown.style.display = 'none';
             const defaultOption = document.createElement('option');
             defaultOption.textContent = "Select a store...";
             defaultOption.value = "";
@@ -46,7 +45,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (statusMessages) {
             statusMessages.textContent = 'Checking status...';
-            statusMessages.className = 'status-info'; // Default class
+            statusMessages.className = 'status-info';
         }
 
         if (authSection) authSection.style.display = 'none';
@@ -57,9 +56,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (selectionControlsDiv) selectionControlsDiv.style.display = 'none';
         if (currentLocationDisplayDiv) currentLocationDisplayDiv.style.display = 'none';
         if (cartResultsSection) cartResultsSection.style.display = 'none';
-        if (addedItemsListUl) addedItemsListUl.innerHTML = '';
+        // removed addedItemsListUl.innerHTML = '';
         if (skippedItemsListUl) skippedItemsListUl.innerHTML = '';
-        if (goToCartBtn) goToCartBtn.style.display = 'none'; // Hide Go to Cart button initially
+        if (goToCartBtn) goToCartBtn.style.display = 'none';
     }
 
     setInitialUIState(); // Call the function to set initial states
@@ -462,9 +461,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             addToCartBtn.disabled = true; 
             if (cartResultsSection) cartResultsSection.style.display = 'none';
-            if (addedItemsListUl) addedItemsListUl.innerHTML = '';
+            // removed addedItemsListUl.innerHTML = '';
             if (skippedItemsListUl) skippedItemsListUl.innerHTML = '';
-            if (goToCartBtn) goToCartBtn.style.display = 'none'; // Ensure it's hidden before new results
+            if (goToCartBtn) goToCartBtn.style.display = 'none';
 
 
             chrome.runtime.sendMessage({ 
@@ -473,7 +472,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 locationId: currentSelectedLocationId
             }, (response) => {
                 addToCartBtn.disabled = false;
-                console.log("Add to Cart Response:", response); // Log the entire response
+                console.log("Add to Cart Response:", response);
 
                 if (chrome.runtime.lastError) {
                     if (statusMessages) {
@@ -489,14 +488,18 @@ document.addEventListener('DOMContentLoaded', function() {
                     console.error("Add to Cart - Response Error:", response.error);
                 } else if (response && response.success) {
                     console.log("Add to Cart - Success. Summary:", response.summary);
-                    let msgText = "Cart operation complete.";
 
-                    // Ensure summary object exists and has the expected arrays
-                    const added = (response.summary && Array.isArray(response.summary.added_items)) ? response.summary.added_items : [];
+                    const addedCount = (response.summary && Array.isArray(response.summary.added_items)) ? response.summary.added_items.length : 0;
                     const skipped = (response.summary && Array.isArray(response.summary.skipped_items)) ? response.summary.skipped_items : [];
 
-                    msgText = `Added ${added.length} items, ${skipped.length} skipped. See details below.`;
-                    renderCartResults(added, skipped); // Pass potentially empty arrays
+                    let msgText = `Cart processing complete. ${addedCount} item(s) processed for cart.`;
+                    if (skipped.length > 0) {
+                        msgText += ` ${skipped.length} item(s) skipped (see details below).`;
+                    } else {
+                        msgText += " No items were skipped.";
+                    }
+
+                    renderCartResults(skipped); // Only pass skipped items
 
                     if (cartResultsSection) {
                         cartResultsSection.style.display = 'block';
@@ -526,32 +529,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Render Cart Results - Ensures item names are displayed clearly.
-    function renderCartResults(addedItems, skippedItems) {
-        console.log("renderCartResults received - Added:", addedItems, "Skipped:", skippedItems);
+    // Render Cart Results - Now only shows skipped items.
+    function renderCartResults(skippedItems) {
+        console.log("renderCartResults received - Skipped:", skippedItems);
 
-        if (!addedItemsListUl || !skippedItemsListUl) {
-            console.error("renderCartResults: addedItemsListUl or skippedItemsListUl not found!");
+        if (!skippedItemsListUl) { // Check only for skippedItemsListUl
+            console.error("renderCartResults: skippedItemsListUl not found!");
             return;
         }
-        addedItemsListUl.innerHTML = ''; // Clear previous results
         skippedItemsListUl.innerHTML = ''; // Clear previous results
-
-        if (addedItems && addedItems.length > 0) {
-            addedItems.forEach(item => {
-                const li = document.createElement('li');
-                // Ensure 'item.name' if item is an object, or item itself if string
-                const itemName = (typeof item === 'object' && item !== null && item.name) ? item.name : item;
-                li.textContent = itemName;
-                li.className = 'added-item';
-                addedItemsListUl.appendChild(li);
-            });
-        } else {
-            const li = document.createElement('li');
-            li.textContent = "No items were added to the cart.";
-            li.style.fontStyle = "italic";
-            addedItemsListUl.appendChild(li);
-        }
 
         if (skippedItems && skippedItems.length > 0) {
             skippedItems.forEach(item => {
